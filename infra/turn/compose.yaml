@@ -35,7 +35,6 @@ configs:
       static-auth-secret=${TURN_SHARED_SECRET:?Set TURN_SHARED_SECRET in infra/turn/.env}
       stale-nonce=600
       no-tls
-      no-dtls
       no-tcp-relay
       no-multicast-peers
       no-software-attribute
