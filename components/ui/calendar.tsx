@@ -5,7 +5,6 @@ import { DayPicker, getDefaultClassNames, type DayButton, type Locale } from "re
 import { motion, AnimatePresence } from "motion/react"
 import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { Button, buttonVariants } from "@/components/ui/button"
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -27,9 +26,7 @@ function Calendar({
   locale,
   components,
   ...props
-}: React.ComponentProps<typeof DayPicker> & {
-  buttonVariant?: React.ComponentProps<typeof Button>["variant"]
-}) {
+}: React.ComponentProps<typeof DayPicker>) {
   const today = new Date()
   const selected = "selected" in props ? props.selected : undefined
 
@@ -296,4 +293,4 @@ function CalendarDayButton({
   )
 }
 
-export { Calendar, CalendarDayButton }
+export { Calendar }

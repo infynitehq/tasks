@@ -13,7 +13,7 @@ interface DateNavProps {
 
 export function DateNav({ dateLabel, activeDate, slideDir, onPrev, onNext }: DateNavProps) {
   return (
-    <div className="flex items-center justify-between mb-2">
+    <div data-tour-region="day" className="flex items-center justify-between mb-2">
       <button
         onClick={onPrev}
         aria-label="Previous day"

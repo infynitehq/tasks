@@ -28,12 +28,15 @@ export interface SyncStore {
   records(): Todo[]
   mergeRemote(records: Todo[]): void
   onLocalChange(fn: (changed: Todo[]) => void): () => void
+  subscribe?(fn: () => void): () => void
 }
 
 export interface PeerInfo {
   peerId: string
   deviceId: string
   name: string
+  synced: boolean
+  lastSyncedAt: number | null
 }
 
 interface PeerState {
@@ -44,6 +47,8 @@ interface PeerState {
   pendingDigest: Record<string, string> | null
   windowStart: number
   windowCount: number
+  synced: boolean
+  lastSyncedAt: number | null
 }
 
 export interface SessionOptions {
@@ -74,7 +79,10 @@ export function startSession(opts: SessionOptions) {
   const verifiedPeers = (): PeerInfo[] =>
     [...peers.entries()]
       .filter(([, p]) => p.verified && p.hello)
-      .map(([peerId, p]) => ({ peerId, deviceId: p.hello!.deviceId, name: p.hello!.name }))
+      .map(([peerId, p]) => ({
+        peerId, deviceId: p.hello!.deviceId, name: p.hello!.name,
+        synced: p.synced, lastSyncedAt: p.lastSyncedAt,
+      }))
 
   function ensurePeer(peerId: string): PeerState {
     let p = peers.get(peerId)
@@ -87,6 +95,8 @@ export function startSession(opts: SessionOptions) {
         pendingDigest: null,
         windowStart: now(),
         windowCount: 0,
+        synced: false,
+        lastSyncedAt: null,
       }
       peers.set(peerId, p)
       hello.send({ proto: PROTO, deviceId: identity.deviceId, name: identity.name, nonce: p.myNonce }, peerId)
@@ -107,7 +117,18 @@ export function startSession(opts: SessionOptions) {
   }
 
   function answerDigest(peerId: string, theirs: Record<string, string>) {
-    const missing = store.records().filter((t) => theirs[t.id] !== recordHash(t))
+    const records = store.records()
+    const missing = records.filter((t) => theirs[t.id] !== recordHash(t))
+    const p = peers.get(peerId)!
+    const matches = !missing.length && Object.keys(theirs).length === records.length
+    if (p.synced !== matches) {
+      p.synced = matches
+      if (matches) p.lastSyncedAt = now()
+      onPeersChange(verifiedPeers())
+      // Return our state once per transition: either confirm a match or ask
+      // for records newly held by the other peer. Never echo every digest.
+      sendDigest(peerId)
+    }
     if (missing.length) sendRecords(missing, peerId)
   }
 
@@ -195,30 +216,63 @@ export function startSession(opts: SessionOptions) {
       const v = validateTodo(r, t)
       if (v) valid.push(v)
     }
-    if (valid.length) store.mergeRemote(valid)
+    if (valid.length) {
+      store.mergeRemote(valid)
+      noticeChanges()
+      // Receipt alone is not completion. Advertise the merged state so the
+      // sender can verify the full dataset, including deletion tombstones.
+      sendDigest(peerId)
+    }
   })
+
+  const version = () => JSON.stringify(store.records().map((t) => [t.id, recordHash(t)]).sort((a, b) => a[0].localeCompare(b[0])))
+  let lastVersion = version()
+  function noticeChanges() {
+    const next = version()
+    if (next === lastVersion || stopped) return
+    lastVersion = next
+    let changed = false
+    for (const p of peers.values()) {
+      if (p.synced) changed = true
+      p.synced = false
+    }
+    if (changed) onPeersChange(verifiedPeers())
+    if (!flushTimer) flushTimer = setTimeout(flush, flushDelay)
+  }
 
   function flush() {
     flushTimer = null
-    if (stopped || !outbox.size) return
+    if (stopped) return
     const batch = [...outbox.values()]
     outbox = new Map()
     for (const peerId of peers.keys()) {
-      if (peers.get(peerId)?.verified) sendRecords(batch, peerId)
+      if (peers.get(peerId)?.verified) {
+        sendRecords(batch, peerId)
+        sendDigest(peerId)
+      }
     }
   }
 
   const unsubscribe = store.onLocalChange((changed) => {
     if (stopped) return
+    noticeChanges()
     for (const t of changed) outbox.set(t.id, t)
     if (!flushTimer) flushTimer = setTimeout(flush, flushDelay)
   })
+  // Includes changes from another tab and from other connected devices.
+  const unsubscribeChanges = store.subscribe?.(noticeChanges)
+  // Reconcile occasionally after dropped sends or a suspended browser.
+  const reconcileTimer = setInterval(() => {
+    if (!stopped) for (const [peerId, p] of peers) if (p.verified) sendDigest(peerId)
+  }, 15_000)
 
   return {
     peers: verifiedPeers,
     stop() {
       stopped = true
       unsubscribe()
+      unsubscribeChanges?.()
+      clearInterval(reconcileTimer)
       if (flushTimer) clearTimeout(flushTimer)
       peers.clear()
     },

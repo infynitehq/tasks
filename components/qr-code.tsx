@@ -20,7 +20,7 @@ export function QrCode({ value, label }: { value: string; label: string }) {
   }, [value])
 
   return (
-    <div className="rounded-3xl bg-white p-3">
+    <div className="rounded-[24px] bg-white p-4">
       <svg
         viewBox={`0 0 ${size} ${size}`}
         className="block w-56 h-56"

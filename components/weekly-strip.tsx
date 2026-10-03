@@ -25,7 +25,7 @@ export function WeeklyStrip({ week, activeDate, onSelectDay }: WeeklyStripProps)
   const isCurrentWeek = week.some((d) => d.isToday)
 
   return (
-    <div className="mb-10 overflow-hidden">
+    <div data-tour-region="week" className="mb-10 overflow-hidden">
       {/* Week prev/next controls */}
       <div className="flex items-center justify-between mb-3">
         <button

@@ -39,9 +39,6 @@ export interface ProofMsg {
 export interface DigestMsg {
   entries: Record<string, string>
 }
-export interface RecordsMsg {
-  records: unknown[]
-}
 export interface PairRequest {
   deviceId: string
   name: string

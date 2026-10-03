@@ -7,11 +7,14 @@ import { startSession, type Session, type PeerInfo } from "./engine"
 import { hostPairing, joinPairing, type Candidate } from "./pairing"
 import { decodePairPayload, encodePairPayload, type PairPayload } from "./protocol"
 import { joinTrystero, type JoinRoom, type RoomHandle } from "./transport"
+import { recordHash } from "./merge"
 
 export interface KnownDevice {
   deviceId: string
   name: string
   lastSeen: number
+  lastSyncedAt?: number
+  pending?: boolean
 }
 
 export type HostStage = "starting" | "waiting" | "confirm" | "done" | "expired" | "error"
@@ -113,6 +116,19 @@ class SyncManager {
 
     document.addEventListener("visibilitychange", this.onVisibility)
     window.addEventListener("online", this.onOnline)
+    window.addEventListener("offline", () => { void this.disconnect() })
+
+    const version = () => JSON.stringify(repo.records().map((t) => [t.id, recordHash(t)]).sort((a, b) => a[0].localeCompare(b[0])))
+    let previous = version()
+    repo.subscribe(() => {
+      const next = version()
+      if (next === previous) return
+      previous = next
+      if (!this.groupKey) return
+      const devices = this.state.devices.map((device) => ({ ...device, pending: true }))
+      this.set({ devices, online: this.state.online.map((peer) => ({ ...peer, synced: false })) })
+      void setMeta(DEVICES_META, devices)
+    })
 
     if (this.groupKey) void this.connect()
   }
@@ -193,15 +209,19 @@ class SyncManager {
     const gone = this.state.online.filter((p) => !peers.some((q) => q.deviceId === p.deviceId))
     // Collapse multiple tabs of one device into a single entry.
     const unique = [...new Map(peers.map((p) => [p.deviceId, p])).values()]
-    for (const p of unique) this.upsertDevice(p.deviceId, p.name)
+    for (const p of unique) this.upsertDevice(p.deviceId, p.name, p)
     this.markOffline(gone)
     this.set({ online: unique })
   }
 
-  private upsertDevice(deviceId: string, name: string) {
+  private upsertDevice(deviceId: string, name: string, peer?: PeerInfo) {
     const now = Date.now()
+    const previous = this.state.devices.find((d) => d.deviceId === deviceId)
     const others = this.state.devices.filter((d) => d.deviceId !== deviceId)
-    const devices = [{ deviceId, name, lastSeen: now }, ...others]
+    const devices = [{
+      ...previous, deviceId, name, lastSeen: now,
+      ...(peer?.synced ? { lastSyncedAt: peer.lastSyncedAt ?? now, pending: false } : {}),
+    }, ...others]
     this.set({ devices })
     void setMeta(DEVICES_META, devices)
   }

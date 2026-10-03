@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { motion, AnimatePresence } from "motion/react"
+import { motion } from "motion/react"
 import { Check, Undo2, X, RefreshCw } from "lucide-react"
 import type { Todo } from "@/lib/todo-store"
 

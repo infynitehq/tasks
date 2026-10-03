@@ -1,8 +1,7 @@
 import type { Todo, Stamps } from "../todo-store"
 import { rolloverStamp } from "./hlc"
 
-// Pure functions only: no I/O, no clocks, no randomness. Everything here is
-// exercised by scripts/sync.test.mts.
+// Pure functions only: no I/O, no clocks, no randomness.
 
 type Group = keyof Stamps
 

@@ -6,15 +6,12 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start",
-    "lint": "eslint .",
-    "test:turn": "node --experimental-strip-types --test scripts/turn.test.mts",
-    "test:sync": "node --experimental-strip-types --import ./scripts/register-hook.mjs scripts/sync.test.mts"
+    "start": "next start"
   },
   "dependencies": {
     "@base-ui/react": "^1.5.0",
     "@vercel/analytics": "1.6.1",
-    "class-variance-authority": "^0.7.1",
+    "bot-avatars": "^0.2.2",
     "clsx": "^2.1.1",
     "date-fns": "^4.4.0",
     "loading-dev": "^0.3.5",

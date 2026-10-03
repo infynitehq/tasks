@@ -1,0 +1,52 @@
+.stage {
+  --line: color-mix(in oklab, var(--foreground) 38%, transparent);
+  --quiet-line: color-mix(in oklab, var(--foreground) 16%, transparent);
+}
+
+.stage svg {
+  overflow: visible;
+}
+
+.stage :is(path, circle) {
+  fill: var(--background);
+  stroke: var(--line);
+  stroke-width: 1;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: stroke 260ms ease;
+}
+
+.stage :global(.sil) {
+  stroke: var(--line);
+}
+
+.stage :global(.lo) {
+  stroke: var(--quiet-line);
+}
+
+.stage :global(.nf) {
+  fill: none;
+}
+
+.stage :global(.fo) {
+  stroke: none;
+}
+
+.stage :global(.hi) {
+  stroke: var(--primary);
+}
+
+.stage :global(.dot) {
+  fill: var(--quiet-line);
+  stroke: none;
+}
+
+.stage :global(.dot.accent) {
+  fill: var(--primary);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .stage :is(path, circle) {
+    transition: none;
+  }
+}

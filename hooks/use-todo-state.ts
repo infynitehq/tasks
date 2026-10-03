@@ -12,7 +12,6 @@ import {
   dailySummary,
   weekSummary,
   last30Days,
-  type DayBar,
 } from "@/lib/todo-store"
 import { readTheme, writeTheme } from "@/lib/idb"
 import { repo } from "@/lib/repo"
@@ -73,12 +72,6 @@ export function useTodoState() {
   const navigate = (dir: 1 | -1) => {
     setSlideDir(dir)
     setActiveDate((d) => addDays(d, dir))
-    setFilter("all")
-  }
-
-  const goToday = () => {
-    setSlideDir(activeDate < todayKey() ? 1 : -1)
-    setActiveDate(todayKey())
     setFilter("all")
   }
 
@@ -198,7 +191,6 @@ export function useTodoState() {
     slideDir,
     // Flags
     readOnly,
-    isFuture,
     // Derived
     dayTodos,
     filteredTodos,
@@ -214,7 +206,6 @@ export function useTodoState() {
     // Actions
     toggleTheme,
     navigate,
-    goToday,
     selectDay,
     addTodo,
     toggleTodo,

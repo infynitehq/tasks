@@ -2,10 +2,15 @@
 
 import { useState, useEffect } from "react"
 import { motion, AnimatePresence } from "motion/react"
-import { Sun, Moon, RefreshCw } from "lucide-react"
+import { Sun, Moon, CircleHelp, CodeXml } from "lucide-react"
+import { getMeta, setMeta } from "@/lib/idb"
+import { todayKey } from "@/lib/todo-store"
+import { GuidedTour } from "./guided-tour"
+import { WelcomeScreen } from "./welcome-screen"
 import { useSync } from "@/hooks/use-sync"
 import { sync } from "@/lib/sync/manager"
 import { SyncSheet } from "./sync-sheet"
+import { SyncStatusButton } from "./sync-status"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { useTodoState } from "@/hooks/use-todo-state"
 import { TodoItem } from "./todo-item"
@@ -14,6 +19,7 @@ import { DateNav } from "./date-nav"
 import { FilterBar } from "./filter-bar"
 import { SummaryPanel } from "./summary-panel"
 import { ImportModal } from "./import-modal"
+import { AboutScreen } from "./about-screen"
 
 export function TodoList() {
   const {
@@ -26,7 +32,6 @@ export function TodoList() {
     slideDir,
     // Flags
     readOnly,
-    isFuture,
     // Derived
     filteredTodos,
     activeCount,
@@ -42,7 +47,6 @@ export function TodoList() {
     // Actions
     toggleTheme,
     navigate,
-    goToday,
     selectDay,
     addTodo,
     toggleTodo,
@@ -54,19 +58,70 @@ export function TodoList() {
   const [localInput, setLocalInput] = useState("")
   const [importOpen, setImportOpen] = useState(false)
   const [syncOpen, setSyncOpen] = useState(false)
+  const [syncReady, setSyncReady] = useState(false)
+  const [autoTour, setAutoTour] = useState(false)
+  const [pairingArrival, setPairingArrival] = useState(false)
+  const [tourOpen, setTourOpen] = useState(false)
+  const [welcomeOpen, setWelcomeOpen] = useState(false)
+  const [aboutOpen, setAboutOpen] = useState(false)
   const syncState = useSync()
 
   // Start sync once, and open the sync screen if we arrived via a pairing link.
   useEffect(() => {
     void sync.init().then(() => {
-      if (sync.consumePairLink()) setSyncOpen(true)
+      if (sync.consumePairLink()) {
+        setSyncOpen(true)
+        setPairingArrival(true)
+        setTourOpen(false)
+        setWelcomeOpen(false)
+      }
+      setSyncReady(true)
     })
     const onHash = () => {
-      if (sync.consumePairLink()) setSyncOpen(true)
+      if (sync.consumePairLink()) {
+        setSyncOpen(true)
+        setPairingArrival(true)
+        setTourOpen(false)
+        setWelcomeOpen(false)
+      }
     }
     window.addEventListener("hashchange", onHash)
     return () => window.removeEventListener("hashchange", onHash)
   }, [])
+
+  useEffect(() => {
+    let cancelled = false
+    void getMeta<boolean>("onboarding-v1").then((seen) => {
+      if (!cancelled) setAutoTour(!seen)
+    })
+    return () => { cancelled = true }
+  }, [])
+
+  useEffect(() => {
+    if (mounted && syncReady && autoTour && !pairingArrival && !syncOpen && !importOpen && !summaryOpen) {
+      setWelcomeOpen(true)
+      setAutoTour(false)
+    }
+  }, [mounted, syncReady, autoTour, pairingArrival, syncOpen, importOpen, summaryOpen])
+
+  const finishTour = () => {
+    setWelcomeOpen(false)
+    setTourOpen(false)
+    setAutoTour(false)
+    void setMeta("onboarding-v1", true)
+  }
+
+  const replayTour = () => {
+    if (readOnly) selectDay(todayKey())
+    setAutoTour(false)
+    setWelcomeOpen(false)
+    setTourOpen(true)
+  }
+
+  const startWelcomeTour = () => {
+    setWelcomeOpen(false)
+    setTourOpen(true)
+  }
 
   const handleAdd = () => {
     const ok = addTodo(localInput)
@@ -79,51 +134,60 @@ export function TodoList() {
     <div className="w-full max-w-md mx-auto h-full flex flex-col pt-8 pb-4">
 
       {/* Top bar */}
-      <div className="flex justify-end items-center gap-4 mb-4 flex-shrink-0">
-        <button
-          onClick={() => {
-            setSyncOpen(true)
-            void sync.init()
-          }}
-          aria-label={
-            syncState.enabled
-              ? `Sync: ${syncState.online.length} device${syncState.online.length === 1 ? "" : "s"} online`
-              : "Sync"
-          }
-          className="relative text-foreground/30 hover:text-foreground/60 transition-colors duration-150 focus-visible:outline-none"
-        >
-          <RefreshCw className="w-4 h-4" />
-          {syncState.enabled && (
-            <span
-              aria-hidden
-              className={`absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full ${
-                syncState.online.length ? "bg-foreground/80" : "bg-foreground/25"
-              }`}
-            />
-          )}
-        </button>
-        <button
-          onClick={toggleTheme}
-          aria-label="Toggle theme"
-          className="text-foreground/30 hover:text-foreground/60 transition-colors duration-150 focus-visible:outline-none"
-        >
-          {dark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
-        </button>
+      <div className="flex justify-between items-center gap-4 mb-4 flex-shrink-0">
+        <div className="flex items-center gap-1">
+          <button
+            type="button"
+            onClick={() => setAboutOpen(true)}
+            aria-label="About the app and developer"
+            aria-haspopup="dialog"
+            title="About the app and developer"
+            className="flex h-9 w-9 items-center justify-center rounded-full text-foreground/40 hover:text-foreground/75 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/30"
+          >
+            <CodeXml aria-hidden="true" className="w-4 h-4" />
+          </button>
+          <button
+            onClick={replayTour}
+            aria-label="Replay tour"
+            title="Replay tour"
+            className="flex h-9 w-9 items-center justify-center rounded-full text-foreground/40 hover:text-foreground/75 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/30"
+          >
+            <CircleHelp className="w-4 h-4" />
+          </button>
+        </div>
+        <div data-tour="preferences" className="flex items-center gap-4">
+          <SyncStatusButton
+            state={syncState}
+            onClick={() => {
+              setSyncOpen(true)
+              void sync.init()
+            }}
+          />
+          <button
+            onClick={toggleTheme}
+            aria-label="Toggle theme"
+            className="text-foreground/30 hover:text-foreground/60 transition-colors duration-150 focus-visible:outline-none"
+          >
+            {dark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+          </button>
+        </div>
       </div>
 
       {/* Weekly strip */}
-      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.4 }} className="flex-shrink-0">
-        <WeeklyStrip week={week} activeDate={activeDate} onSelectDay={selectDay} />
-      </motion.div>
+      <div data-tour="dates" className="flex-shrink-0">
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.4 }} className="flex-shrink-0">
+          <WeeklyStrip week={week} activeDate={activeDate} onSelectDay={selectDay} />
+        </motion.div>
 
-      {/* Date navigation */}
-      <DateNav
-        dateLabel={dateLabel}
-        activeDate={activeDate}
-        slideDir={slideDir}
-        onPrev={() => navigate(-1)}
-        onNext={() => navigate(1)}
-      />
+        {/* Date navigation */}
+        <DateNav
+          dateLabel={dateLabel}
+          activeDate={activeDate}
+          slideDir={slideDir}
+          onPrev={() => navigate(-1)}
+          onNext={() => navigate(1)}
+        />
+      </div>
 
       {/* Title + counter */}
       <motion.div
@@ -153,21 +217,11 @@ export function TodoList() {
           </motion.p>
         </AnimatePresence>
 
-        {readOnly && (
-          <motion.button
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            onClick={goToday}
-            className="text-xs text-foreground/25 hover:text-foreground/50 transition-colors duration-150 focus-visible:outline-none tracking-wide mt-1"
-          >
-            today&apos;s not gonna do itself
-          </motion.button>
-        )}
       </motion.div>
 
       {/* Input */}
       {!readOnly && (
-        <div className="border-b border-foreground/10 mb-4 flex-shrink-0">
+        <div data-tour="entry" className="border-b border-foreground/10 mb-4 flex-shrink-0">
           <input
             type="text"
             value={localInput}
@@ -238,6 +292,10 @@ export function TodoList() {
       />
 
       <SyncSheet open={syncOpen} onClose={() => setSyncOpen(false)} />
+      <AboutScreen open={aboutOpen} dark={dark} onClose={() => setAboutOpen(false)} />
+
+      <WelcomeScreen open={welcomeOpen && !syncOpen && !importOpen && !summaryOpen} dark={dark} onStartTour={startWelcomeTour} onSkip={finishTour} />
+      <GuidedTour open={tourOpen && !syncOpen && !importOpen && !summaryOpen} dark={dark} onFinish={finishTour} />
 
       {/* Summary panel */}
       <SummaryPanel
