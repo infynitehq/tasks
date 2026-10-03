@@ -24,9 +24,21 @@ Set the two required values in `.env`:
 - `TURN_DOMAIN`: hostname only, e.g. `turn.example.com`.
 - `TURN_SHARED_SECRET`: the generated random secret. Keep this file private.
 
-Clients use your fixed hostname. The server detects its public IPv4 at startup;
-no IP address is configured in `.env`. Keep the DNS record pointing to the VPS.
-Discovery failure prevents startup instead of advertising a private address.
+Clients use your fixed hostname. At startup, the server detects its public IPv4
+and the local source IPv4 selected by the host routing table. It binds relay
+sockets to that local address and configures an explicit public/private mapping.
+Keep the DNS record pointing to the VPS. Discovery failure prevents startup.
+
+For multi-interface hosts, optionally set `TURN_RELAY_IP` in the VPS's `.env`
+to the local interface IPv4; normally it can stay empty. Deployment-specific IPs
+belong in that ignored environment file, not the Compose configuration.
+
+The startup script allows the selected relay interface as a peer destination
+so two clients using this same TURN server can connect after coturn maps the
+public address back to the local address. Other private-address deny rules
+remain active. This is an IP-wide exception, not restricted to the relay ports;
+services bound to that interface should have appropriate host firewall rules.
+Deploy `start.sh` alongside `compose.yaml`; Compose mounts it into the container.
 
 ```bash
 docker compose config --quiet

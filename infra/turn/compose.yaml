@@ -8,25 +8,15 @@ services:
     network_mode: host
     environment:
       TURN_TLS_ENABLED: ${TURN_TLS_ENABLED:-false}
+      TURN_RELAY_IP: ${TURN_RELAY_IP:-}
     volumes:
       - ./tls:/etc/coturn/tls:ro
-    # Discover the public IPv4 at startup; fail rather than advertise a
-    # private address if discovery is unavailable. No IP env var is needed.
-    entrypoint: ["/bin/sh", "-ec"]
-    command:
-      - |
-        external_ip="$$(detect-external-ip)"
-        if [ "$$TURN_TLS_ENABLED" = "true" ]; then
-          test -s /etc/coturn/tls/fullchain.pem
-          test -s /etc/coturn/tls/privkey.pem
-          set -- --tls-listening-port=443 --cert=/etc/coturn/tls/fullchain.pem --pkey=/etc/coturn/tls/privkey.pem
-        else
-          set -- --no-tls
-        fi
-        exec turnserver -c /etc/coturn/turnserver.conf --external-ip="$$external_ip" "$$@"
+    entrypoint: ["/bin/sh", "/etc/coturn/start.sh"]
     configs:
       - source: turn-config
         target: /etc/coturn/turnserver.conf
+      - source: turn-start
+        target: /etc/coturn/start.sh
     logging:
       driver: json-file
       options:
@@ -34,6 +24,8 @@ services:
         max-file: "3"
 
 configs:
+  turn-start:
+    file: ./start.sh
   turn-config:
     content: |
       listening-ip=0.0.0.0
