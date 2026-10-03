@@ -18,10 +18,33 @@ export type JoinRoom = (roomId: string, password: string) => Promise<RoomHandle>
 
 export const APP_ID = "minimal-todos.sync.v1"
 
+// Keep signaling consistent across devices without relying on Trystero's
+// default selection. The artio relay accepted events without delivering them.
+const DEFAULT_RELAY_URLS = [
+  "wss://nos.lol",
+  "wss://relay02.lnfi.network",
+  "wss://nostr.islandarea.net",
+  "wss://staging.yabu.me",
+]
+
+/** Public URLs only: Next.js includes this value in the browser bundle. */
+export function relayUrlsFromEnv(value: string | undefined): string[] {
+  const urls = value?.split(",").map((url) => url.trim()).filter(Boolean) ?? []
+  if (!urls.length) return [...DEFAULT_RELAY_URLS]
+  for (const url of urls) {
+    const parsed = new URL(url)
+    if (parsed.protocol !== "wss:" || parsed.username || parsed.password || parsed.hash) {
+      throw new Error("NEXT_PUBLIC_NOSTR_RELAY_URLS must contain public wss:// URLs without credentials or fragments")
+    }
+  }
+  return [...new Set(urls)]
+}
+
 /** Joins a Trystero room. Loaded lazily so sync costs nothing until used. */
 export const joinTrystero: JoinRoom = async (roomId, password) => {
+  const urls = relayUrlsFromEnv(process.env.NEXT_PUBLIC_NOSTR_RELAY_URLS)
   const t = await import("trystero")
-  const room = t.joinRoom({ appId: APP_ID, password }, roomId)
+  const room = t.joinRoom({ appId: APP_ID, password, relayConfig: { urls } }, roomId)
 
   const joins: ((id: string) => void)[] = []
   const leaves: ((id: string) => void)[] = []

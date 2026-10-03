@@ -1,0 +1,79 @@
+name: nostr
+
+services:
+  relay:
+    # Upstream currently publishes an amd64 image only.
+    image: scsibug/nostr-rs-relay:0.10.0@sha256:48d54c2d2781577cf3ed2951112f0953dc2c5e7c9d2ea20c64e8c0fa37d16e4d
+    platform: linux/amd64
+    restart: unless-stopped
+    volumes:
+      - relay-data:/usr/src/app/db
+    configs:
+      - source: relay-config
+        target: /usr/src/app/config.toml
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    depends_on:
+      - relay
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      NOSTR_DOMAIN: ${NOSTR_DOMAIN:?Set NOSTR_DOMAIN in infra/nostr/.env}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  relay-data:
+  caddy-data:
+  caddy-config:
+
+# Compose interpolates this content into a TOML file mounted in the relay.
+# A plain file mount would NOT expand environment variables inside TOML.
+configs:
+  relay-config:
+    content: |
+      [info]
+      relay_url = "wss://${NOSTR_DOMAIN:?Set NOSTR_DOMAIN in infra/nostr/.env}/"
+      name = "Nostr signaling relay"
+      description = "WebRTC signaling relay. Task records are not stored here."
+
+      [database]
+      engine = "sqlite"
+      data_directory = "/usr/src/app/db"
+
+      [network]
+      address = "0.0.0.0"
+      port = 8080
+      ping_interval = 60
+
+      [options]
+      reject_future_seconds = 1800
+
+      [limits]
+      messages_per_sec = 20
+      subscriptions_per_min = 60
+      max_event_bytes = 131072
+      max_ws_message_bytes = 131072
+      max_ws_frame_bytes = 131072
+      limit_scrapers = false
+
+      [authorization]
+      nip42_auth = false
+
+      [verified_users]
+      mode = "disabled"

@@ -39,7 +39,9 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en" className="light bg-background h-full overflow-x-hidden overflow-y-hidden">
+    // Browsers can inject attributes such as __gcrremoteframetoken before
+    // hydration. Tolerate root attributes only, not mismatches in children.
+    <html lang="en" className="light bg-background h-full overflow-x-hidden overflow-y-hidden" suppressHydrationWarning>
       <body className="antialiased h-full overflow-x-hidden overflow-y-hidden">
         {children}
         <RegisterSW />

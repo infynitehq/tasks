@@ -1,0 +1,57 @@
+name: turn
+
+services:
+  coturn:
+    image: coturn/coturn:4.18.0-r0@sha256:bbefd3e1fdfdc0d58770fe01b581fd8b00d9f3a5580d00acb77cf719a6bc78e3
+    restart: unless-stopped
+    # Linux host networking avoids Docker NAT for UDP relay allocations.
+    network_mode: host
+    # Discover the public IPv4 at startup; fail rather than advertise a
+    # private address if discovery is unavailable. No IP env var is needed.
+    entrypoint: ["/bin/sh", "-ec"]
+    command:
+      - |
+        external_ip="$$(detect-external-ip)"
+        exec turnserver -c /etc/coturn/turnserver.conf --external-ip="$$external_ip"
+    configs:
+      - source: turn-config
+        target: /etc/coturn/turnserver.conf
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+configs:
+  turn-config:
+    content: |
+      listening-ip=0.0.0.0
+      listening-port=3478
+      min-port=49160
+      max-port=49200
+      realm=${TURN_DOMAIN:?Set TURN_DOMAIN in infra/turn/.env}
+      fingerprint
+      use-auth-secret
+      static-auth-secret=${TURN_SHARED_SECRET:?Set TURN_SHARED_SECRET in infra/turn/.env}
+      stale-nonce=600
+      no-tls
+      no-dtls
+      no-tcp-relay
+      no-multicast-peers
+      no-software-attribute
+      user-quota=8
+      total-quota=32
+      max-bps=1000000
+      bps-capacity=10000000
+      denied-peer-ip=0.0.0.0-0.255.255.255
+      denied-peer-ip=10.0.0.0-10.255.255.255
+      denied-peer-ip=100.64.0.0-100.127.255.255
+      denied-peer-ip=127.0.0.0-127.255.255.255
+      denied-peer-ip=169.254.0.0-169.254.255.255
+      denied-peer-ip=172.16.0.0-172.31.255.255
+      denied-peer-ip=192.168.0.0-192.168.255.255
+      denied-peer-ip=::1
+      denied-peer-ip=fc00::-fdff:ffff:ffff:ffff:ffff:ffff:ffff:ffff
+      denied-peer-ip=fe80::-febf:ffff:ffff:ffff:ffff:ffff:ffff:ffff
+      log-file=stdout
+      simple-log

@@ -24,6 +24,17 @@ Open [http://localhost:3000](http://localhost:3000) with your browser to see the
 
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
+## Self-hosted sync signaling
+
+Environment-based configuration and deployment instructions for a Nostr
+relay are in [`infra/nostr`](infra/nostr/README.md).
+Run that stack on a Linux VPS with Docker; the app itself can stay on Vercel.
+Optional authenticated TURN fallback deployment is in [`infra/turn`](infra/turn/README.md).
+
+Copy `.env.example` to `.env.local` for optional app relay URLs and development
+origins. If `.env.local` already exists, add the entries instead of overwriting
+it. `NEXT_PUBLIC_*` values are visible in the browser, not secrets.
+
 ## Learn More
 
 To learn more, take a look at the following resources:
