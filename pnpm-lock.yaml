@@ -7,11 +7,6 @@ settings:
 overrides:
   hono: 4.12.25
 
-patchedDependencies:
-  bot-avatars@0.2.2:
-    hash: 2847e5362350ab64cf1db20161ea06cd5fcaa5d742637a60c1423675994e69e0
-    path: patches/bot-avatars@0.2.2.patch
-
 importers:
 
   .:
@@ -24,7 +19,7 @@ importers:
         version: 1.6.1(next@16.2.6(@babel/core@7.29.7)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react@19.2.4)
       bot-avatars:
         specifier: ^0.2.2
-        version: 0.2.2(patch_hash=2847e5362350ab64cf1db20161ea06cd5fcaa5d742637a60c1423675994e69e0)(react@19.2.4)
+        version: 0.2.2(react@19.2.4)
       clsx:
         specifier: ^2.1.1
         version: 2.1.1
@@ -2996,7 +2991,7 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  bot-avatars@0.2.2(patch_hash=2847e5362350ab64cf1db20161ea06cd5fcaa5d742637a60c1423675994e69e0)(react@19.2.4):
+  bot-avatars@0.2.2(react@19.2.4):
     dependencies:
       react: 19.2.4
 
