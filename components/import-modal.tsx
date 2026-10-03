@@ -199,7 +199,7 @@ export function ImportModal({ open, onClose, activeDate, onImport }: ImportScree
                   setDateTarget("pick")
                   setCalOpen(false)
                 }}
-                initialFocus
+                autoFocus
                 className="border-none p-0"
               />
               <button

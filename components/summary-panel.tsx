@@ -3,7 +3,7 @@
 import { useMemo } from "react"
 import { motion, AnimatePresence } from "motion/react"
 import { ArrowLeft } from "lucide-react"
-import { RadialBarChart, RadialBar, PolarGrid, PolarRadiusAxis, Label } from "recharts"
+import { RadialBarChart, RadialBar, PolarGrid, PolarRadiusAxis, Label, Sector } from "recharts"
 import { ChartContainer, type ChartConfig } from "@/components/ui/chart"
 import type { DailySummary, DayBar } from "@/lib/todo-store"
 
@@ -50,7 +50,7 @@ function CompletionRing({ pct, completed, total }: { pct: number; completed: num
           />
           <RadialBar
             dataKey="value"
-            background={{ fill: "var(--foreground)", opacity: 0.08, cornerRadius: 6 }}
+            background={<Sector fill="var(--foreground)" opacity={0.08} cornerRadius={6} />}
             cornerRadius={6}
             fill="var(--primary)"
           />

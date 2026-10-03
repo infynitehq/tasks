@@ -24,8 +24,6 @@ const VARIANTS = {
 function Calendar({
   className,
   classNames,
-  selected,
-  onSelect,
   locale,
   components,
   ...props
@@ -33,6 +31,7 @@ function Calendar({
   buttonVariant?: React.ComponentProps<typeof Button>["variant"]
 }) {
   const today = new Date()
+  const selected = "selected" in props ? props.selected : undefined
 
   // Controlled display month
   const [displayMonth, setDisplayMonth] = React.useState<Date>(() => {
@@ -169,8 +168,6 @@ function Calendar({
             {view === "days" && (
               <DayPicker
                 {...props}
-                selected={selected}
-                onSelect={onSelect}
                 month={displayMonth}
                 onMonthChange={setDisplayMonth}
                 showOutsideDays
