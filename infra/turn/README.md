@@ -10,6 +10,8 @@ It complements Nostr signaling; it does not replace it. Can run on the same VPS.
 - Open **3478 TCP/UDP** and **49160–49200 UDP** on host/provider firewalls.
 - If behind simple 1:1 NAT, forward these ports unchanged.
 - Outbound DNS access for automatic public-IP discovery at startup.
+- Build-time access to Docker Hub and Debian package repositories. The local
+  Dockerfile adds `iproute2` to the pinned coturn image for relay-IP detection.
 
 ## Deploy
 
@@ -38,17 +40,24 @@ so two clients using this same TURN server can connect after coturn maps the
 public address back to the local address. Other private-address deny rules
 remain active. This is an IP-wide exception, not restricted to the relay ports;
 services bound to that interface should have appropriate host firewall rules.
-Deploy `start.sh` alongside `compose.yaml`; Compose mounts it into the container.
+Deploy the entire `infra/turn` directory, including `Dockerfile`, `.dockerignore`,
+`start.sh`, and `compose.yaml`. Compose builds the image and mounts the startup
+script. The build context excludes local secrets and certificates.
 
 ```bash
 docker compose config --quiet
-docker compose pull
-docker compose up -d
+docker compose up -d --build
 docker compose logs --tail=100
 ```
 
 Use `config --quiet`; printing rendered Compose configuration exposes the secret.
 Host networking means the firewall, not Docker port mappings, controls access.
+
+If upgrading from the upstream image, rebuild rather than only recreating the
+container: `docker compose up -d --build --force-recreate`. The upstream image
+does not contain the `ip` command. As an immediate workaround for an old image,
+setting `TURN_RELAY_IP` in the VPS's `.env` bypasses route detection. Once the
+derived image is built, the override can be cleared to restore auto-detection.
 
 ## App integration
 

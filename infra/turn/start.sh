@@ -19,6 +19,10 @@ fi
 # or an arbitrary Docker bridge address. Override for multi-interface hosts.
 relay_ip="${TURN_RELAY_IP:-}"
 if [ -z "$relay_ip" ]; then
+  if ! command -v ip >/dev/null 2>&1; then
+    echo 'Missing iproute2. Rebuild with docker compose up -d --build, or set TURN_RELAY_IP explicitly.' >&2
+    exit 1
+  fi
   relay_ip="$(ip -4 route get "$external_ip" | awk '
     { for (i = 1; i < NF; i++) if ($i == "src") { print $(i + 1); exit } }
   ')"
