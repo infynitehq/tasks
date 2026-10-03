@@ -19,10 +19,24 @@ async function gather(peer: RTCPeerConnection) {
   })
 }
 
-async function checkRelay(server: RTCIceServer) {
+async function checkRelay(server: RTCIceServer, report: (message: string) => void) {
   const config: RTCConfiguration = { iceServers: [server], iceTransportPolicy: "relay" }
   const a = new RTCPeerConnection(config)
   const b = new RTCPeerConnection(config)
+  const errors = new Set<string>()
+  for (const peer of [a, b]) {
+    peer.onicecandidateerror = (event) => {
+      errors.add(`${event.errorCode}: ${event.errorText || "TURN candidate error"}`)
+    }
+  }
+  function verifyAllocation(peer: RTCPeerConnection, label: string) {
+    if (!peer.localDescription?.sdp.match(/^a=candidate:.*\btyp relay\b/m)) {
+      throw new Error(`Peer ${label}: no TURN relay candidate was allocated. ${
+        [...errors].join("; ") || "Check TURN authentication and reachability."
+      }`)
+    }
+    report(`Peer ${label}: TURN relay candidate allocated.`)
+  }
   let timer: ReturnType<typeof setTimeout> | undefined
   try {
     const channel = a.createDataChannel("turn-check")
@@ -31,12 +45,16 @@ async function checkRelay(server: RTCIceServer) {
     }
     await a.setLocalDescription(await a.createOffer())
     await gather(a)
+    verifyAllocation(a, "A")
     await b.setRemoteDescription(a.localDescription!)
     await b.setLocalDescription(await b.createAnswer())
     await gather(b)
+    verifyAllocation(b, "B")
     await a.setRemoteDescription(b.localDescription!)
     await new Promise<void>((resolve, reject) => {
-      timer = setTimeout(() => reject(new Error("Relayed data round-trip timed out")), 15_000)
+      timer = setTimeout(() => reject(new Error(
+        `TURN allocations succeeded, but data transfer timed out (ICE ${a.iceConnectionState}/${b.iceConnectionState}). Check relay UDP ports, advertised public IP, and server peer permissions.`
+      )), 15_000)
       channel.onmessage = ({ data }) => { if (data === "turn-ok") resolve() }
       channel.onerror = () => reject(new Error("Data channel failed"))
       channel.onopen = () => channel.send("turn-ok")
@@ -72,7 +90,9 @@ export default function SyncCheck() {
         for (const url of typeof server.urls === "string" ? [server.urls] : server.urls) {
           setResults((rows) => [...rows, `Testing ${url}…`])
           try {
-            await checkRelay({ ...server, urls: url })
+            await checkRelay({ ...server, urls: url }, (message) => {
+              setResults((rows) => [...rows, message])
+            })
             setResults((rows) => [...rows, `PASS ${url}: authenticated relay allocation and data round-trip.`])
           } catch (error) {
             setResults((rows) => [...rows, `FAIL ${url}: ${error instanceof Error ? error.message : "Connection failed"}`])
