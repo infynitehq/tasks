@@ -59,6 +59,10 @@ class SyncManager {
   private joiner: Awaited<ReturnType<typeof joinPairing>> | null = null
   private pairTimer: ReturnType<typeof setTimeout> | null = null
   private idleTimer: ReturnType<typeof setTimeout> | null = null
+  private refreshTimer: ReturnType<typeof setTimeout> | null = null
+  private retryTimer: ReturnType<typeof setTimeout> | null = null
+  private retryDelay = 2000
+  private connectionGeneration = 0
   private initPromise: Promise<void> | null = null
 
   subscribe = (fn: () => void) => {
@@ -126,12 +130,13 @@ class SyncManager {
   }
 
   private async doConnect() {
+    const generation = this.connectionGeneration
     const key = this.groupKey
     if (!key) return
     try {
       const { roomId, password } = await deriveGroupRoom(key)
       const room = await this.join(roomId, password)
-      if (this.groupKey !== key) {
+      if (this.groupKey !== key || generation !== this.connectionGeneration) {
         await room.leave()
         return
       }
@@ -144,13 +149,37 @@ class SyncManager {
         onPeersChange: (peers) => this.onPeers(peers),
       })
       this.set({ connected: true, error: null })
+      this.retryDelay = 2000
+      if (this.retryTimer) clearTimeout(this.retryTimer)
+      this.retryTimer = null
+      // Trystero captures ICE configuration when a room is created. Rejoin
+      // before the one-hour TURN credentials expire, including future peers.
+      this.refreshTimer = setTimeout(() => {
+        void this.disconnect().then(() => {
+          if (document.visibilityState !== "hidden") return this.connect()
+        })
+      }, 45 * 60_000)
     } catch (e) {
+      if (generation !== this.connectionGeneration) return
       console.warn("Sync connect failed", e)
-      this.set({ connected: false, error: "Couldn't reach the network. Sync will retry when you're back online." })
+      this.set({ connected: false, error: "Couldn't connect to sync. Retrying automatically." })
+      if (this.groupKey === key && document.visibilityState !== "hidden") {
+        this.retryTimer = setTimeout(() => {
+          this.retryTimer = null
+          void this.connect()
+        }, this.retryDelay)
+        this.retryDelay = Math.min(this.retryDelay * 2, 60_000)
+      }
     }
   }
 
   private async disconnect() {
+    this.connectionGeneration++
+    await this.connecting
+    if (this.refreshTimer) clearTimeout(this.refreshTimer)
+    if (this.retryTimer) clearTimeout(this.retryTimer)
+    this.refreshTimer = null
+    this.retryTimer = null
     this.session?.stop()
     this.session = null
     const room = this.room

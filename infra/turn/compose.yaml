@@ -6,13 +6,24 @@ services:
     restart: unless-stopped
     # Linux host networking avoids Docker NAT for UDP relay allocations.
     network_mode: host
+    environment:
+      TURN_TLS_ENABLED: ${TURN_TLS_ENABLED:-false}
+    volumes:
+      - ./tls:/etc/coturn/tls:ro
     # Discover the public IPv4 at startup; fail rather than advertise a
     # private address if discovery is unavailable. No IP env var is needed.
     entrypoint: ["/bin/sh", "-ec"]
     command:
       - |
         external_ip="$$(detect-external-ip)"
-        exec turnserver -c /etc/coturn/turnserver.conf --external-ip="$$external_ip"
+        if [ "$$TURN_TLS_ENABLED" = "true" ]; then
+          test -s /etc/coturn/tls/fullchain.pem
+          test -s /etc/coturn/tls/privkey.pem
+          set -- --tls-listening-port=443 --cert=/etc/coturn/tls/fullchain.pem --pkey=/etc/coturn/tls/privkey.pem
+        else
+          set -- --no-tls
+        fi
+        exec turnserver -c /etc/coturn/turnserver.conf --external-ip="$$external_ip" "$$@"
     configs:
       - source: turn-config
         target: /etc/coturn/turnserver.conf
@@ -34,7 +45,6 @@ configs:
       use-auth-secret
       static-auth-secret=${TURN_SHARED_SECRET:?Set TURN_SHARED_SECRET in infra/turn/.env}
       stale-nonce=600
-      no-tls
       no-tcp-relay
       no-multicast-peers
       no-software-attribute

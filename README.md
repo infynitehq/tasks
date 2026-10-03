@@ -30,6 +30,9 @@ Environment-based configuration and deployment instructions for a Nostr
 relay are in [`infra/nostr`](infra/nostr/README.md).
 Run that stack on a Linux VPS with Docker; the app itself can stay on Vercel.
 Optional authenticated TURN fallback deployment is in [`infra/turn`](infra/turn/README.md).
+The app fetches short-lived TURN credentials from `/api/turn` when server-only
+`TURN_URLS` and `TURN_SHARED_SECRET` are set. Visit `/sync-check` to verify
+authenticated TURN allocations and relay-only data transfer for each URL.
 
 Copy `.env.example` to `.env.local` for optional app relay URLs and development
 origins. If `.env.local` already exists, add the entries instead of overwriting

@@ -1,3 +1,5 @@
+import { getTurnConfig } from "./turn"
+
 // A thin interface over Trystero so the session and pairing logic can be
 // driven by an in-memory fake in tests.
 
@@ -44,7 +46,8 @@ export function relayUrlsFromEnv(value: string | undefined): string[] {
 export const joinTrystero: JoinRoom = async (roomId, password) => {
   const urls = relayUrlsFromEnv(process.env.NEXT_PUBLIC_NOSTR_RELAY_URLS)
   const t = await import("trystero")
-  const room = t.joinRoom({ appId: APP_ID, password, relayConfig: { urls } }, roomId)
+  const { iceServers } = await getTurnConfig()
+  const room = t.joinRoom({ appId: APP_ID, password, relayConfig: { urls }, turnConfig: iceServers }, roomId)
 
   const joins: ((id: string) => void)[] = []
   const leaves: ((id: string) => void)[] = []

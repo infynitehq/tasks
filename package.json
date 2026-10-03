@@ -8,6 +8,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
+    "test:turn": "node --experimental-strip-types --test scripts/turn.test.mts",
     "test:sync": "node --experimental-strip-types --import ./scripts/register-hook.mjs scripts/sync.test.mts"
   },
   "dependencies": {

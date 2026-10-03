@@ -20,4 +20,5 @@ node_modules
 
 # Local development certificates and generated TypeScript state
 certificates/
+infra/turn/tls/
 *.tsbuildinfo
