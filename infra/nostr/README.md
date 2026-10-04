@@ -51,4 +51,4 @@ This URL is public—never include secrets.
 - Signaling only; task records travel over WebRTC. Optional TURN fallback
   deployment is in [`../turn`](../turn/README.md).
 
-[Upstream documentation](https://github.com/scsibug/nostr-rs-relay)
+For more information, check out: [https://github.com/scsibug/nostr-rs-relay](https://github.com/scsibug/nostr-rs-relay)

@@ -1,58 +1,27 @@
-# v0-todo-list
+# tasks
 
-This is a [Next.js](https://nextjs.org) project bootstrapped with [v0](https://v0.app).
+A minimal, local-first daily todo app. Installable PWA, dark mode, and device sync—no account required.
 
-## Built with v0
+## Architecture
 
-This repository is linked to a [v0](https://v0.app) project. You can continue developing by visiting the link below -- start new chats to make changes, and v0 will push commits directly to this repo. Every merge to `main` will automatically deploy.
+Next.js + React + Tailwind CSS. Tasks persist in IndexedDB and sync over WebRTC; Nostr handles signaling only.
 
-[Continue working on v0 →](https://v0.app/chat/projects/prj_iDPfVAep6jl0fUbiHXzCKiQPPeXh)
+![tasks-architecture](/public/architecture.png)
 
-## Getting Started
-
-First, run the development server:
+## Run locally
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
+pnpm install
+cp .env.example .env.local # only if .env.local doesn't exist
 pnpm dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [localhost:3000](http://localhost:3000). Set your production `NEXT_PUBLIC_SITE_URL` for canonical links and the sitemap, and `NEXT_PUBLIC_NOSTR_RELAY_URLS` for signaling.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Deploy
 
-## Self-hosted sync signaling
+Host the app on Vercel or any Next.js host. Self-host [Nostr](infra/nostr/README.md) and optionally [TURN](infra/turn/README.md) on a VPS.
 
-Environment-based configuration and deployment instructions for a Nostr
-relay are in [`infra/nostr`](infra/nostr/README.md).
-Run that stack on a Linux VPS with Docker; the app itself can stay on Vercel.
-Optional authenticated TURN fallback deployment is in [`infra/turn`](infra/turn/README.md).
-The app fetches short-lived TURN credentials from `/api/turn` when server-only
-`TURN_URLS` and `TURN_SHARED_SECRET` are set. Visit `/sync-check` to verify
-authenticated TURN allocations and relay-only data transfer for each URL.
+Keep `TURN_SHARED_SECRET` server-only; `/api/turn` issues temporary credentials. Test connectivity at `/sync-check`.
 
-Copy `.env.example` to `.env.local` for optional app relay URLs and development
-origins. If `.env.local` already exists, add the entries instead of overwriting
-it. `NEXT_PUBLIC_*` values are visible in the browser, not secrets.
-
-## SEO metadata
-
-Set `NEXT_PUBLIC_SITE_URL` to the app's public production origin (for example,
-`https://your-production-domain.com`) before building or deploying. This enables
-the homepage canonical URL and sitemap entry without guessing a production domain.
-Until configured, the sitemap is empty and no canonical URL is emitted.
-
-The app includes search metadata, Open Graph and Twitter previews, developer
-attribution for Soham Datta, and WebApplication structured data. `/sync-check`
-is marked `noindex` and excluded from the sitemap.
-
-## Learn More
-
-To learn more, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-- [v0 Documentation](https://v0.app/docs) - learn about v0 and how to use it.
+Built by [Soham Datta](https://sohamdatta.com/).

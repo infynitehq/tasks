@@ -130,4 +130,4 @@ allocation and bandwidth caps enabled.
 - Apply env changes: `docker compose up -d --force-recreate`.
 - Stop: `docker compose down`.
 
-[Upstream documentation](https://github.com/coturn/coturn/tree/master/docker/coturn)
+For more information, check out: [https://github.com/coturn/coturn/tree/master/docker/coturn](https://github.com/coturn/coturn/tree/master/docker/coturn)
