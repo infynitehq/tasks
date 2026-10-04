@@ -14,6 +14,7 @@
     "bot-avatars": "^0.2.2",
     "clsx": "^2.1.1",
     "date-fns": "^4.4.0",
+    "geist": "^1.7.2",
     "loading-dev": "^0.3.5",
     "lucide-react": "^1.16.0",
     "motion": "^12.43.0",

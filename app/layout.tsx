@@ -1,9 +1,16 @@
 import './globals.css'
 import type { Metadata, Viewport } from 'next'
+import { GeistSans } from 'geist/font/sans'
+import { GeistMono } from 'geist/font/mono'
 import { Analytics } from '@vercel/analytics/next'
 import { RegisterSW } from '@/components/register-sw'
 import { ThemeProvider } from '@/components/theme-provider'
 import { appDescription, appTitle, developer, siteUrl } from '@/lib/site-metadata'
+
+const fontVariables = [
+  GeistSans.variable,
+  GeistMono.variable,
+].join(' ')
 
 export const metadata: Metadata = {
   metadataBase: siteUrl ? new URL(siteUrl) : undefined,
@@ -58,8 +65,8 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en" className="bg-background h-full overflow-x-hidden overflow-y-hidden" suppressHydrationWarning>
-      <body className="antialiased h-full overflow-x-hidden overflow-y-hidden">
+    <html lang="en" className={`${fontVariables} bg-background h-full overflow-x-hidden overflow-y-hidden`} suppressHydrationWarning>
+      <body className="font-sans antialiased h-full overflow-x-hidden overflow-y-hidden">
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
           {children}
         </ThemeProvider>

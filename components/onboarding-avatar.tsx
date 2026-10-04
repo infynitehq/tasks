@@ -7,19 +7,22 @@ import styles from "./onboarding-avatar.module.css"
 interface OnboardingAvatarProps {
   size?: number
   dark: boolean
+  mood?: "happy" | "sad" | "neutral"
 }
 
-export function OnboardingAvatar({ size = 48, dark }: OnboardingAvatarProps) {
+export function OnboardingAvatar({ size = 48, dark, mood = "happy" }: OnboardingAvatarProps) {
   const shadingId = useId()
   const shineId = useId()
   const rimId = useId()
   const bodyClipId = useId()
   const containerRef = useRef<HTMLDivElement>(null)
+  const [mounted, setMounted] = useState(false)
   const [gaze, setGaze] = useState({ x: 0, y: 0 })
   const [hop, setHop] = useState(0)
   const [celebrating, setCelebrating] = useState(false)
 
   useEffect(() => {
+    setMounted(true)
     const motion = window.matchMedia("(prefers-reduced-motion: reduce)")
     let frame = 0
     let target = { x: 0, y: 0 }
@@ -61,6 +64,7 @@ export function OnboardingAvatar({ size = 48, dark }: OnboardingAvatarProps) {
       <svg
         key={hop}
         data-onboarding-avatar
+        data-mood={mood}
         viewBox="-10 -10 120 120"
         width={size}
         height={size}
@@ -79,7 +83,7 @@ export function OnboardingAvatar({ size = 48, dark }: OnboardingAvatarProps) {
           <linearGradient id={shadingId} x1="0" y1="0" x2="1" y2="1">
             <stop offset="0" stopColor="white" stopOpacity="0.3" />
             <stop offset="0.4" stopColor="white" stopOpacity="0" />
-            <stop offset="1" stopColor="black" stopOpacity={dark ? 0.42 : 0.34} />
+            <stop offset="1" stopColor="black" stopOpacity={mounted && dark ? 0.42 : 0.34} />
           </linearGradient>
           <radialGradient id={shineId} cx="30%" cy="20%" r="65%" gradientTransform="translate(0 0.04) scale(1 0.8)">
             <stop offset="0" stopColor="white" stopOpacity="0.86" />
@@ -111,7 +115,19 @@ export function OnboardingAvatar({ size = 48, dark }: OnboardingAvatarProps) {
               </g>
             ))}
           </g>
-          <path d="M44 64 Q50 70 56 64" fill="none" stroke="#1e1a33" strokeWidth="2.4" strokeLinecap="round" />
+          {mood === "sad" && (
+            <g fill="none" stroke="#1e1a33" strokeWidth="2" strokeLinecap="round">
+              <path d="M32 40 L42 37" />
+              <path d="M58 37 L68 40" />
+            </g>
+          )}
+          <path
+            d={mood === "sad" ? "M44 68 Q50 61 56 68" : mood === "neutral" ? "M45 66 H55" : "M44 64 Q50 70 56 64"}
+            fill="none"
+            stroke="#1e1a33"
+            strokeWidth="2.4"
+            strokeLinecap="round"
+          />
         </g>
       </svg>
     </div>
