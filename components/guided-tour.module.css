@@ -49,12 +49,23 @@
 
 .card {
   position: absolute;
+  display: flex;
+  flex-direction: column;
   width: min(360px, calc(100% - 24px));
   max-height: calc(100dvh - 24px);
-  overflow-y: auto;
+  overflow: hidden;
   padding: 20px;
   border-radius: 16px;
   animation: appear 160ms ease-out;
+}
+
+.description {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  font-size: 14px;
+  line-height: 1.625;
+  color: color-mix(in oklab, var(--foreground) 70%, transparent);
 }
 
 .iconButton, .textButton, .nextButton {

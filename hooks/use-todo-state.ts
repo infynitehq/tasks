@@ -20,9 +20,10 @@ export type Filter = "all" | "active" | "done" | "overdue"
 
 export function useTodoState() {
   const todos = useSyncExternalStore(repo.subscribe, repo.getSnapshot, repo.getServerSnapshot)
+  const repositoryReady = useSyncExternalStore(repo.subscribe, repo.getReadySnapshot, repo.getServerReadySnapshot)
   const [filter, setFilter] = useState<Filter>("all")
   const [activeDate, setActiveDate] = useState("")
-  const [mounted, setMounted] = useState(false)
+  const mounted = repositoryReady && Boolean(activeDate)
   const { resolvedTheme, setTheme } = useTheme()
   const dark = resolvedTheme === "dark"
   const [summaryOpen, setSummaryOpen] = useState(false)
@@ -38,12 +39,9 @@ export function useTodoState() {
     const today = todayKey()
     setActiveDate(today)
 
-    async function init() {
-      await repo.load()
-      setMounted(true)
-    }
-
-    init()
+    void repo.load().catch((error) => {
+      console.error("Task repository initialization failed", error)
+    })
 
     // Crossing midnight while the tab sits open (or in the background).
     const onVisible = () => {
@@ -56,7 +54,7 @@ export function useTodoState() {
     }
     document.addEventListener("visibilitychange", onVisible)
     return () => document.removeEventListener("visibilitychange", onVisible)
-  }, [])
+  }, [repo])
 
   // ── Theme ───────────────────────────────────────────────────────────────────
   const toggleTheme = () => {
@@ -79,20 +77,28 @@ export function useTodoState() {
   // ── Task operations ─────────────────────────────────────────────────────────
   const addTodo = (text: string) => {
     const trimmed = text.trim()
-    if (!trimmed || readOnly) return false
+    if (!repo.loaded || !activeDate || !trimmed || readOnly) return false
     repo.add(trimmed, activeDate)
     return true
   }
 
-  const toggleTodo = (id: string) => repo.toggle(id)
+  const toggleTodo = (id: string) => {
+    if (!repo.loaded) return
+    repo.toggle(id)
+  }
 
-  const deleteTodo = (id: string) => repo.remove([id])
+  const deleteTodo = (id: string) => {
+    if (!repo.loaded) return
+    repo.remove([id])
+  }
 
   const clearCompleted = () => {
+    if (!repo.loaded) return
     repo.remove(todos.filter((t) => t.date === activeDate && t.completed).map((t) => t.id))
   }
 
   const bulkImport = (lines: string[], targetDate: string): number => {
+    if (!repo.loaded) return 0
     const trimmed = lines.map((l) => l.trim()).filter(Boolean)
     if (!trimmed.length) return 0
     return repo.addMany(trimmed, targetDate)

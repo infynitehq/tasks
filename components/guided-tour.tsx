@@ -53,7 +53,6 @@ export function GuidedTour({ open, dark, onFinish }: GuidedTourProps) {
   const [placement, setPlacement] = useState<Placement | null>(null)
   const dialogRef = useRef<HTMLDialogElement>(null)
   const cardRef = useRef<HTMLDivElement>(null)
-  const nextRef = useRef<HTMLButtonElement>(null)
   const current = STEPS[step]
   const visual = STEP_VISUALS[current.target]
 
@@ -63,7 +62,7 @@ export function GuidedTour({ open, dark, onFinish }: GuidedTourProps) {
     const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null
     const dialog = dialogRef.current
     dialog?.showModal()
-    nextRef.current?.focus({ preventScroll: true })
+    dialog?.focus({ preventScroll: true })
     return () => {
       dialog?.close()
       if (previousFocus?.isConnected) previousFocus.focus({ preventScroll: true })
@@ -101,18 +100,23 @@ export function GuidedTour({ open, dark, onFinish }: GuidedTourProps) {
       const top = Math.min(...highlights.map((region) => region.top))
       const right = Math.max(...highlights.map((region) => region.left + region.width))
       const bottom = Math.max(...highlights.map((region) => region.top + region.height))
-      const gap = visual.gap
       const roomBelow = offsetTop + height - bottom
       const roomAbove = top - offsetTop
       const placeBelow = roomBelow >= roomAbove
       const roomBeside = visual.side === "left" ? left - offsetLeft : offsetLeft + width - right
-      const beside = roomBeside >= 300 + gap + 12
+      const beside = roomBeside >= 300 + visual.gap + 12
       const preferencesDock = !beside && current.target === "preferences"
       const preferencesTop = bottom + 80
       card.style.width = beside ? "300px" : preferencesDock ? `${Math.min(360, width - 24)}px` : ""
-      // Reserve an actual corridor for the arrow, even on short screens.
-      // The card scrolls internally when the available side is cramped.
-      card.style.maxHeight = `${beside ? height - 24 : preferencesDock ? Math.max(80, offsetTop + height - preferencesTop - 12) : Math.max(80, (placeBelow ? roomBelow : roomAbove) - gap - 12)}px`
+      // Shorten the decorative connector before shrinking the tour content.
+      card.style.maxHeight = "none"
+      const naturalHeight = card.offsetHeight
+      const room = placeBelow ? roomBelow : roomAbove
+      const gap = beside ? visual.gap : Math.max(24, Math.min(visual.gap, room - naturalHeight - 12))
+      // Keep navigation visible; only the description may scroll. If neither
+      // side can fit the controls, dock within the viewport rather than clip them.
+      const minimumHeight = Math.min(240, height - 24)
+      card.style.maxHeight = `${Math.min(height - 24, beside ? height - 24 : preferencesDock ? Math.max(minimumHeight, offsetTop + height - preferencesTop - 12) : Math.max(minimumHeight, room - gap - 12))}px`
       const cardWidth = card.offsetWidth
       const cardHeight = card.offsetHeight
       const below = bottom + gap
@@ -212,7 +216,7 @@ export function GuidedTour({ open, dark, onFinish }: GuidedTourProps) {
     }
 
     update()
-    nextRef.current?.focus({ preventScroll: true })
+    dialogRef.current?.focus({ preventScroll: true })
     const observer = new ResizeObserver(update)
     observer.observe(card)
     if (target) observer.observe(target)
@@ -245,16 +249,17 @@ export function GuidedTour({ open, dark, onFinish }: GuidedTourProps) {
   return createPortal(
     <dialog
       ref={dialogRef}
+      tabIndex={-1}
       aria-labelledby="tour-title"
       aria-describedby="tour-description"
-      className={styles.overlay}
+      className={`${styles.overlay} outline-none`}
       onCancel={(event) => { event.preventDefault(); onFinish() }}
       onKeyDown={(event) => {
         if (event.key !== "Tab") return
         const buttons = Array.from(event.currentTarget.querySelectorAll<HTMLButtonElement>("button:not(:disabled)"))
         const first = buttons[0]
         const last = buttons[buttons.length - 1]
-        if (event.shiftKey && document.activeElement === first) {
+        if (event.shiftKey && (document.activeElement === first || document.activeElement === event.currentTarget)) {
           event.preventDefault()
           last?.focus()
         } else if (!event.shiftKey && document.activeElement === last) {
@@ -289,25 +294,25 @@ export function GuidedTour({ open, dark, onFinish }: GuidedTourProps) {
         className={`${styles.card} bg-background text-foreground shadow-xl`}
         style={{ left: placement?.cardLeft ?? 12, top: placement?.cardTop ?? 12, visibility: placement ? "visible" : "hidden" }}
       >
-        <div className="flex items-center justify-between mb-4">
+        <div className="mb-4 flex shrink-0 items-center justify-between">
           <span className="text-xs tracking-widest uppercase text-foreground/55">A quick tour · {step + 1} / {STEPS.length}</span>
           <button onClick={onFinish} aria-label="Skip tour" className={styles.iconButton}><X className="h-4 w-4" /></button>
         </div>
-        <div aria-live="polite" aria-atomic="true">
-          <div className="flex items-center gap-3 mb-2">
+        <div aria-live="polite" aria-atomic="true" className="flex min-h-0 flex-col">
+          <div className="mb-2 flex shrink-0 items-center gap-3">
             <OnboardingAvatar dark={dark} />
-            <h2 id="tour-title" className="text-lg font-medium tracking-tight">{current.title}</h2>
+            <h2 id="tour-title" className="min-w-0 text-lg font-medium tracking-tight">{current.title}</h2>
           </div>
-          <p id="tour-description" className="text-sm leading-relaxed text-foreground/70">{current.text}</p>
+          <p id="tour-description" className={styles.description}>{current.text}</p>
         </div>
-        <div className="flex gap-1.5 mt-5 mb-5" aria-hidden="true">
+        <div className="mt-5 mb-5 flex shrink-0 gap-1.5" aria-hidden="true">
           {STEPS.map((item, index) => <span key={item.target} className={`h-1 flex-1 rounded-full ${index <= step ? "bg-foreground/65" : "bg-foreground/15"}`} />)}
         </div>
-        <div className="flex items-center justify-between gap-3">
+        <div className="flex shrink-0 flex-wrap items-center justify-between gap-2">
           <button onClick={onFinish} className={`${styles.textButton} text-foreground/60`}><X aria-hidden="true" className="h-3 w-3" /> Skip tour</button>
           <div className="flex items-center gap-2">
             <button disabled={step === 0} onClick={() => setStep(step - 1)} className={`${styles.textButton} disabled:opacity-25`}><ChevronLeft className="h-3.5 w-3.5" /> Back</button>
-            <button ref={nextRef} onClick={() => step === STEPS.length - 1 ? onFinish() : setStep(step + 1)} className={`${styles.textButton} ${styles.nextButton}`}>
+            <button onClick={() => step === STEPS.length - 1 ? onFinish() : setStep(step + 1)} className={`${styles.textButton} ${styles.nextButton}`}>
               {step === STEPS.length - 1 ? "Get started" : "Next"}<ChevronRight className="h-3.5 w-3.5" />
             </button>
           </div>

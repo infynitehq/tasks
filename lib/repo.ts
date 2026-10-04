@@ -7,6 +7,7 @@
 import type { Todo } from "./todo-store"
 import { todayKey } from "./todo-store"
 import { readAllTodos, putTodos, getMeta, setMeta } from "./idb"
+import { createUUID } from "./uuid"
 import { Clock } from "./sync/hlc"
 import { mergeInto, planRollover } from "./sync/merge"
 
@@ -107,6 +108,8 @@ class TodoRepo {
   /** Visible (non-deleted) todos. Stable identity between changes. */
   getSnapshot = (): Todo[] => this.visible
   getServerSnapshot = (): Todo[] => EMPTY
+  getReadySnapshot = (): boolean => this.loaded
+  getServerReadySnapshot = (): boolean => false
 
   /** Every record, tombstones included. For sync only. */
   records(): Todo[] {
@@ -137,7 +140,7 @@ class TodoRepo {
   private build(text: string, date: string): Todo {
     const s = this.stamp()
     return {
-      id: crypto.randomUUID(),
+      id: createUUID(),
       text,
       completed: false,
       createdAt: Date.now(),

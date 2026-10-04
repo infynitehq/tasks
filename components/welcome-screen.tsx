@@ -17,14 +17,13 @@ export function WelcomeScreen({ open, dark, onStartTour, onSkip }: WelcomeScreen
   const titleId = useId()
   const descriptionId = useId()
   const dialogRef = useRef<HTMLDialogElement>(null)
-  const startRef = useRef<HTMLButtonElement>(null)
 
   useEffect(() => {
     if (!open) return
     const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null
     const dialog = dialogRef.current
     dialog?.showModal()
-    startRef.current?.focus({ preventScroll: true })
+    dialog?.focus({ preventScroll: true })
     return () => {
       dialog?.close()
       if (previousFocus?.isConnected) previousFocus.focus({ preventScroll: true })
@@ -36,16 +35,17 @@ export function WelcomeScreen({ open, dark, onStartTour, onSkip }: WelcomeScreen
   return createPortal(
     <dialog
       ref={dialogRef}
+      tabIndex={-1}
       aria-labelledby={titleId}
       aria-describedby={descriptionId}
-      className={`${styles.dialog} bg-background text-foreground`}
+      className={`${styles.dialog} bg-background text-foreground outline-none`}
       onCancel={(event) => { event.preventDefault(); onSkip() }}
       onKeyDown={(event) => {
         if (event.key !== "Tab") return
         const buttons = Array.from(event.currentTarget.querySelectorAll<HTMLButtonElement>("button"))
         const first = buttons[0]
         const last = buttons[buttons.length - 1]
-        if (event.shiftKey && document.activeElement === first) {
+        if (event.shiftKey && (document.activeElement === first || document.activeElement === event.currentTarget)) {
           event.preventDefault()
           last?.focus()
         } else if (!event.shiftKey && document.activeElement === last) {
@@ -62,7 +62,7 @@ export function WelcomeScreen({ open, dark, onStartTour, onSkip }: WelcomeScreen
           A little space for your day. Capture your tasks, find your focus, and take things one step at a time.
         </p>
         <div className="mt-8 mx-auto flex w-full max-w-56 flex-col items-stretch gap-2">
-          <button ref={startRef} onClick={onStartTour} className={`${styles.button} bg-foreground text-background`}>
+          <button onClick={onStartTour} className={`${styles.button} bg-foreground text-background`}>
             Explore <ArrowRight aria-hidden="true" className="h-4 w-4" />
           </button>
           <button onClick={onSkip} className={`${styles.button} text-foreground/65 hover:text-foreground`}>Skip intro</button>

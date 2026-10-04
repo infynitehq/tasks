@@ -7,6 +7,7 @@ import { getMeta, setMeta } from "@/lib/idb"
 import { todayKey } from "@/lib/todo-store"
 import { GuidedTour } from "./guided-tour"
 import { WelcomeScreen } from "./welcome-screen"
+import { OnboardingAvatar } from "./onboarding-avatar"
 import { useSync } from "@/hooks/use-sync"
 import { sync } from "@/lib/sync/manager"
 import { SyncSheet } from "./sync-sheet"
@@ -265,9 +266,10 @@ export function TodoList() {
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0.2 }}
-                className="py-12 text-center select-none"
+                className="flex flex-col items-center gap-3 px-4 py-10 text-center select-none"
               >
-                <span className="text-sm text-foreground/25">{emptyText}</span>
+                <OnboardingAvatar size={96} dark={dark} mood={filter === "active" || filter === "overdue" ? "happy" : "neutral"} />
+                <span className="text-sm leading-relaxed text-foreground/45 dark:text-foreground/65">{emptyText}</span>
               </motion.li>
             )}
             {filteredTodos.map((todo) => (
