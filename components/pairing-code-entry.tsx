@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useId, useRef, useState } from "react"
+import { ScanLine } from "lucide-react"
 import { normalizePairingCode } from "@/lib/pairing-code"
 import { b64u, randomBytes } from "@/lib/sync/crypto"
 import { sync } from "@/lib/sync/manager"
@@ -54,7 +55,9 @@ export function PairingCodeEntry({ onCancel, onScan }: { onCancel: () => void; o
         {error && <p id={`${inputId}-error`} role="alert" className="text-sm leading-relaxed text-foreground/70">{error}</p>}
         <button disabled={busy || !value.trim()} type="submit" className="w-full rounded-full bg-foreground/85 py-3.5 text-sm font-medium text-background disabled:opacity-30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background">{busy ? "Finding your device…" : "Continue"}</button>
       </form>
-      <button onClick={onScan} className="min-h-10 rounded-full border border-foreground/15 text-sm text-foreground/65 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/30">Scan a QR code instead</button>
+      <button onClick={onScan} className="flex min-h-10 items-center justify-center gap-2 rounded-full border border-foreground/15 text-sm text-foreground/65 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/30">
+        <ScanLine aria-hidden="true" className="h-4 w-4" /> Scan a QR code instead
+      </button>
       <button onClick={onCancel} className="min-h-10 rounded-full text-sm text-foreground/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/30">Cancel</button>
       <p className="text-center text-xs leading-relaxed text-foreground/45">Codes expire after five minutes. You’ll confirm before pairing.</p>
     </section>

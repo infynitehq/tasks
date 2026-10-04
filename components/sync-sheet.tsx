@@ -2,7 +2,7 @@
 
 import { useEffect, useId, useRef, useState } from "react"
 import { motion, AnimatePresence } from "motion/react"
-import { ArrowLeft, Check, CircleCheck, Copy, Laptop, Smartphone, ShieldCheck, ArrowRight, Monitor, RefreshCw, Clock3, ScanLine, Keyboard } from "lucide-react"
+import { ArrowLeft, Check, CircleCheck, Copy, Laptop, Smartphone, ShieldCheck, ArrowRight, Monitor, RefreshCw, Clock3, ScanLine } from "lucide-react"
 import { Classic, Eclipse, Pulse } from "loading-dev"
 import { useSync } from "@/hooks/use-sync"
 import { sync, type SyncState, type Pairing } from "@/lib/sync/manager"
@@ -58,7 +58,8 @@ export function SyncSheet({ open, onClose }: { open: boolean; onClose: () => voi
   const centered = !state.ready || pairing?.stage === "starting" || pairing?.stage === "connecting"
     || (pairing?.role === "host" && (pairing.stage === "waiting" || pairing.stage === "confirm"))
     || pairing?.stage === "approve"
-  const fullHeight = !scanning && !enteringCode && (centered || (state.ready && state.enabled && !state.pairing))
+  const intro = state.ready && !state.enabled && !state.pairing && !scanning && !enteringCode
+  const fullHeight = !scanning && !enteringCode && (intro || centered || (state.ready && state.enabled && !state.pairing))
   const scan = () => { setEnteringCode(false); setScanning(true) }
   const enterCode = () => { setScanning(false); setEnteringCode(true) }
 
@@ -84,8 +85,8 @@ export function SyncSheet({ open, onClose }: { open: boolean; onClose: () => voi
           transition={{ type: "spring", stiffness: 500, damping: 42 }}
           className="fixed inset-0 z-50 bg-background overflow-y-auto flex justify-center"
         >
-          <div className={`w-full max-w-md px-5 pt-10 sm:pt-16 ${fullHeight ? "flex min-h-full flex-col pb-[max(1.5rem,env(safe-area-inset-bottom))]" : "pb-16"}`}>
-            <div className={`flex shrink-0 justify-between items-center ${centered ? "" : "mb-10"}`}>
+          <div className={`w-full max-w-md px-5 ${intro ? "flex min-h-full flex-col pt-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] [@media(max-height:640px)]:pt-4" : `pt-10 sm:pt-16 ${fullHeight ? "flex min-h-full flex-col pb-[max(1.5rem,env(safe-area-inset-bottom))]" : "pb-16"}`}`}>
+            <div className={`flex shrink-0 justify-between items-center ${centered ? "" : intro ? "mb-5 [@media(max-height:640px)]:mb-3" : "mb-10"}`}>
               <button
                 onClick={close}
                 className="flex items-center gap-1.5 text-foreground/30 hover:text-foreground/60 transition-colors duration-150 focus-visible:outline-none"
@@ -104,9 +105,9 @@ export function SyncSheet({ open, onClose }: { open: boolean; onClose: () => voi
             ) : enteringCode ? (
               <PairingCodeEntry onCancel={() => setEnteringCode(false)} onScan={scan} />
             ) : state.enabled ? (
-              <ConnectedView state={state} onScan={scan} onEnterCode={enterCode} />
+              <ConnectedView state={state} onScan={scan} />
             ) : (
-              <OffView error={state.error} onScan={scan} onEnterCode={enterCode} />
+              <OffView error={state.error} onScan={scan} />
             )}
           </div>
         </motion.div>
@@ -117,14 +118,17 @@ export function SyncSheet({ open, onClose }: { open: boolean; onClose: () => voi
 
 // ── Not set up ───────────────────────────────────────────────────────────────
 
-function OffView({ error, onScan, onEnterCode }: { error: string | null; onScan: () => void; onEnterCode: () => void }) {
+function OffView({ error, onScan }: { error: string | null; onScan: () => void }) {
   return (
-    <>
-      <SyncIllustration />
-      <Heading title="Your tasks, together" sub="Pick up where you left off on your phone, tablet, or computer." />
+    <section className={styles.intro}>
+      <SyncIllustration compact />
+      <div className="mb-5">
+        <h1 className="text-[clamp(1.875rem,7vw,2.25rem)] font-medium tracking-tight text-foreground/85 text-balance">Your tasks, together</h1>
+        <p className="mt-2 text-sm leading-relaxed text-foreground/60">Pair your phone, tablet, or computer.</p>
+      </div>
       {error && <p className="text-sm text-foreground/50 mb-6">{error}</p>}
-      <div className="mb-8 space-y-4">
-        {["Show a code on one device. Enter its pairing code inside Tasks on the other, or scan its QR code.", "Approve the connection. You only do this once.", "Keep tasks open on both devices to share changes."].map((step, index) => (
+      <div className="mb-6 space-y-3 [@media(max-height:640px)]:mb-4 [@media(max-height:640px)]:space-y-2">
+        {["Scan the other device’s QR code.", "Compare numbers and approve.", "Keep both apps open to sync."].map((step, index) => (
           <div key={step} className="flex items-start gap-3 text-sm text-foreground/65">
             <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-foreground/5 text-xs font-medium">{index + 1}</span>
             <p className="pt-0.5">{step}</p>
@@ -134,22 +138,19 @@ function OffView({ error, onScan, onEnterCode }: { error: string | null; onScan:
       <button onClick={() => void sync.startHosting()} className={`${primaryBtn} flex items-center justify-center gap-2`}>
         Sync with another device <ArrowRight className="h-4 w-4" aria-hidden="true" />
       </button>
-      <button onClick={onEnterCode} className={`${secondaryBtn} mt-3 flex items-center justify-center gap-2`}>
-        <Keyboard className="h-4 w-4" aria-hidden="true" /> Enter a pairing code
+      <button onClick={onScan} className={`${secondaryBtn} mt-3 flex items-center justify-center gap-2`}>
+        <ScanLine className="h-4 w-4" aria-hidden="true" /> Scan a QR code
       </button>
-      <button onClick={onScan} className="mt-2 flex min-h-11 w-full items-center justify-center gap-2 rounded-full text-sm text-foreground/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/30">
-        <ScanLine className="h-4 w-4" aria-hidden="true" /> Scan a QR code instead
-      </button>
-      <p className="flex items-center justify-center gap-1.5 text-xs text-foreground/45 mt-5 leading-relaxed text-center">
-        <ShieldCheck className="h-3.5 w-3.5" aria-hidden="true" /> Only your paired devices can read your tasks.
+      <p className="mt-3 flex items-center justify-center gap-1.5 text-center text-xs leading-relaxed text-foreground/45">
+        <ShieldCheck className="h-3.5 w-3.5 shrink-0" aria-hidden="true" /> Only paired devices can read your tasks.
       </p>
-    </>
+    </section>
   )
 }
 
 // ── Set up ───────────────────────────────────────────────────────────────────
 
-function ConnectedView({ state, onScan, onEnterCode }: { state: SyncState; onScan: () => void; onEnterCode: () => void }) {
+function ConnectedView({ state, onScan }: { state: SyncState; onScan: () => void }) {
   const others = state.devices.filter((d) => d.deviceId !== state.me.deviceId)
   const status = syncSummary(state)
   const [, tick] = useState(0)
@@ -208,10 +209,9 @@ function ConnectedView({ state, onScan, onEnterCode }: { state: SyncState; onSca
         <button onClick={() => void sync.startHosting()} className={primaryBtn}>
           Sync another device
         </button>
-        <button onClick={onEnterCode} className={`${secondaryBtn} flex items-center justify-center gap-2`}>
-          <Keyboard className="h-4 w-4" aria-hidden="true" /> Enter a pairing code
+        <button onClick={onScan} className={`${secondaryBtn} flex items-center justify-center gap-2`}>
+          <ScanLine className="h-4 w-4" aria-hidden="true" /> Scan a QR code
         </button>
-        <button onClick={onScan} className="min-h-10 rounded-full text-sm text-foreground/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/30">Scan a QR code instead</button>
         <LeaveButton />
       </div>
     </div>

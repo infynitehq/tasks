@@ -1,3 +1,14 @@
+.compact {
+  max-width: clamp(150px, calc(100dvh - 520px), 340px);
+  margin-bottom: 12px;
+}
+
+@media (max-height: 640px) {
+  .compact {
+    margin-bottom: 8px;
+  }
+}
+
 .stage {
   --line: color-mix(in oklab, var(--foreground) 38%, transparent);
   --quiet-line: color-mix(in oklab, var(--foreground) 16%, transparent);

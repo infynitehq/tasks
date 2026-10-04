@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
-import { Camera, RefreshCw } from "lucide-react"
+import { Camera, Keyboard, RefreshCw } from "lucide-react"
 import { sync } from "@/lib/sync/manager"
 import { decodePairLink } from "@/lib/sync/protocol"
 
@@ -120,7 +120,9 @@ export function QrPairScanner({ onCancel, onEnterCode }: { onCancel: () => void;
         <RefreshCw aria-hidden="true" className="h-4 w-4" /> Retry camera
       </button>}
       {linkError && <p role="alert" className="text-sm leading-relaxed text-foreground/70">{linkError}</p>}
-      <button onClick={onEnterCode} className="min-h-11 rounded-full border border-foreground/15 text-sm text-foreground/65 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/30">Enter a pairing code instead</button>
+      <button onClick={onEnterCode} className="flex min-h-11 items-center justify-center gap-2 rounded-full border border-foreground/15 text-sm text-foreground/65 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/30">
+        <Keyboard aria-hidden="true" className="h-4 w-4" /> Enter a pairing code instead
+      </button>
       <button type="button" onClick={onCancel} className="min-h-10 rounded-full text-sm text-foreground/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/30">Cancel</button>
       <p className="text-center text-xs leading-relaxed text-foreground/45">Camera images stay on this device. You’ll confirm before pairing.</p>
     </section>
