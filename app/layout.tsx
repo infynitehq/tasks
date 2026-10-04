@@ -38,15 +38,15 @@ export const metadata: Metadata = {
     description: appDescription,
     creator: '@tech_savvy_guy_',
   },
-  manifest: '/manifest.json',
+  manifest: '/manifest.json?v=4',
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',
     title: 'Tasks',
   },
   icons: {
-    icon: { url: '/favicon.svg', type: 'image/svg+xml' },
-    apple: { url: '/apple-touch-icon.png', sizes: '180x180', type: 'image/png' },
+    icon: { url: '/favicon.svg?v=4', type: 'image/svg+xml' },
+    apple: { url: '/apple-touch-icon.png?v=4', sizes: '180x180', type: 'image/png' },
   },
 }
 
