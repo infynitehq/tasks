@@ -45,7 +45,7 @@ export const metadata: Metadata = {
     title: 'Tasks',
   },
   icons: {
-    icon: { url: '/favicon.svg?v=4', type: 'image/svg+xml' },
+    icon: { url: '/favicon.svg?v=5', type: 'image/svg+xml' },
     apple: { url: '/apple-touch-icon.png?v=4', sizes: '180x180', type: 'image/png' },
   },
 }
