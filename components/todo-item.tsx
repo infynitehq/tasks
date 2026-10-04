@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { motion } from "motion/react"
-import { Check, Undo2, X, RefreshCw } from "lucide-react"
+import { Check, Undo2, X, CornerDownRight } from "lucide-react"
 import type { Todo } from "@/lib/todo-store"
 
 interface TodoItemProps {
@@ -27,8 +27,17 @@ export function TodoItem({ todo, onToggle, onDelete, readOnly = false }: TodoIte
       onClick={() => !readOnly && onToggle(todo.id)}
       className={`group flex items-center justify-between py-3.5 select-none ${readOnly ? "cursor-default" : "cursor-pointer"}`}
     >
-      {/* Text + rollover badge */}
+      {/* Task text + subtle rollover indicator */}
       <span className="flex-1 text-lg leading-relaxed select-none pr-4 flex items-center gap-2.5">
+        {todo.rolloverCount > 0 && !todo.completed && (
+          <span
+            className="inline-flex text-foreground/30 shrink-0"
+            title={`Carried over ${todo.rolloverCount} ${todo.rolloverCount === 1 ? "day" : "days"}`}
+            aria-label={`Carried over ${todo.rolloverCount} ${todo.rolloverCount === 1 ? "day" : "days"}`}
+          >
+            <CornerDownRight aria-hidden="true" className="w-3 h-3" />
+          </span>
+        )}
         <span className="relative inline-block leading-none">
           <motion.span
             initial={false}
@@ -49,11 +58,9 @@ export function TodoItem({ todo, onToggle, onDelete, readOnly = false }: TodoIte
           />
         </span>
 
-        {/* Rollover badge */}
         {todo.rolloverCount > 0 && !todo.completed && (
-          <span className="inline-flex items-center gap-1 text-[11px] text-foreground/30 shrink-0">
-            <RefreshCw className="w-2.5 h-2.5" />
-            {todo.rolloverCount > 1 ? `${todo.rolloverCount}d` : ""}
+          <span className="hidden group-hover:inline-flex group-focus-within:inline-flex items-center self-center text-[11px] leading-none text-foreground/40 shrink-0">
+            {todo.rolloverCount} {todo.rolloverCount === 1 ? "day" : "days"}
           </span>
         )}
       </span>

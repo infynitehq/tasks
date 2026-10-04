@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useMemo, useRef, useSyncExternalStore } from "react"
+import { useTheme } from "next-themes"
 import {
   todayKey,
   addDays,
@@ -13,7 +14,6 @@ import {
   weekSummary,
   last30Days,
 } from "@/lib/todo-store"
-import { readTheme, writeTheme } from "@/lib/idb"
 import { repo } from "@/lib/repo"
 
 export type Filter = "all" | "active" | "done" | "overdue"
@@ -23,7 +23,8 @@ export function useTodoState() {
   const [filter, setFilter] = useState<Filter>("all")
   const [activeDate, setActiveDate] = useState("")
   const [mounted, setMounted] = useState(false)
-  const [dark, setDark] = useState(false)
+  const { resolvedTheme, setTheme } = useTheme()
+  const dark = resolvedTheme === "dark"
   const [summaryOpen, setSummaryOpen] = useState(false)
   const [slideDir, setSlideDir] = useState<1 | -1>(1)
 
@@ -39,9 +40,6 @@ export function useTodoState() {
 
     async function init() {
       await repo.load()
-      const isDark = await readTheme()
-      setDark(isDark)
-      document.documentElement.classList.toggle("dark", isDark)
       setMounted(true)
     }
 
@@ -62,10 +60,7 @@ export function useTodoState() {
 
   // ── Theme ───────────────────────────────────────────────────────────────────
   const toggleTheme = () => {
-    const next = !dark
-    setDark(next)
-    document.documentElement.classList.toggle("dark", next)
-    writeTheme(next)
+    setTheme(dark ? "light" : "dark")
   }
 
   // ── Date navigation ─────────────────────────────────────────────────────────

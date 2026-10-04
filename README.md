@@ -38,6 +38,17 @@ Copy `.env.example` to `.env.local` for optional app relay URLs and development
 origins. If `.env.local` already exists, add the entries instead of overwriting
 it. `NEXT_PUBLIC_*` values are visible in the browser, not secrets.
 
+## SEO metadata
+
+Set `NEXT_PUBLIC_SITE_URL` to the app's public production origin (for example,
+`https://your-production-domain.com`) before building or deploying. This enables
+the homepage canonical URL and sitemap entry without guessing a production domain.
+Until configured, the sitemap is empty and no canonical URL is emitted.
+
+The app includes search metadata, Open Graph and Twitter previews, developer
+attribution for Soham Datta, and WebApplication structured data. `/sync-check`
+is marked `noindex` and excluded from the sitemap.
+
 ## Learn More
 
 To learn more, take a look at the following resources:

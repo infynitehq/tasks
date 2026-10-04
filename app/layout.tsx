@@ -1,12 +1,36 @@
-import { Analytics } from '@vercel/analytics/next'
-import type { Metadata, Viewport } from 'next'
 import './globals.css'
+import type { Metadata, Viewport } from 'next'
+import { Analytics } from '@vercel/analytics/next'
 import { RegisterSW } from '@/components/register-sw'
+import { ThemeProvider } from '@/components/theme-provider'
+import { appDescription, appTitle, developer, siteUrl } from '@/lib/site-metadata'
 
 export const metadata: Metadata = {
-  title: 'Tasks — Minimal Todo',
-  description: 'A minimal, aesthetic daily todo list',
-  generator: 'v0.app',
+  metadataBase: siteUrl ? new URL(siteUrl) : undefined,
+  title: {
+    default: appTitle,
+    template: '%s | Tasks',
+  },
+  description: appDescription,
+  applicationName: 'Tasks',
+  authors: [{ name: developer.name, url: developer.url }],
+  creator: developer.name,
+  category: 'productivity',
+  robots: { index: true, follow: true },
+  openGraph: {
+    type: 'website',
+    url: siteUrl,
+    locale: 'en_US',
+    siteName: 'Tasks',
+    title: appTitle,
+    description: appDescription,
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: appTitle,
+    description: appDescription,
+    creator: '@tech_savvy_guy_',
+  },
   manifest: '/manifest.json',
   appleWebApp: {
     capable: true,
@@ -14,13 +38,13 @@ export const metadata: Metadata = {
     title: 'Tasks',
   },
   icons: {
-    icon: '/icon-192.png',
-    apple: '/icon-192.png',
+    icon: { url: '/favicon.svg', type: 'image/svg+xml' },
+    apple: { url: '/apple-touch-icon.png', sizes: '180x180', type: 'image/png' },
   },
 }
 
 export const viewport: Viewport = {
-  colorScheme: 'light',
+  colorScheme: 'light dark',
   themeColor: '#ffffff',
   width: 'device-width',
   initialScale: 1,
@@ -34,11 +58,11 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    // Browsers can inject attributes such as __gcrremoteframetoken before
-    // hydration. Tolerate root attributes only, not mismatches in children.
-    <html lang="en" className="light bg-background h-full overflow-x-hidden overflow-y-hidden" suppressHydrationWarning>
+    <html lang="en" className="bg-background h-full overflow-x-hidden overflow-y-hidden" suppressHydrationWarning>
       <body className="antialiased h-full overflow-x-hidden overflow-y-hidden">
-        {children}
+        <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
+          {children}
+        </ThemeProvider>
         <RegisterSW />
         {process.env.NODE_ENV === 'production' && <Analytics />}
       </body>
