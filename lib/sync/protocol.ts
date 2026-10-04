@@ -152,7 +152,7 @@ export function decodePairPayload(raw: string): PairPayload | null {
     const x = JSON.parse(json) as unknown
     if (!isObj(x) || x.v !== 1) return null
     if (!str(x.r, 64) || !B64U_RE.test(x.r) || !str(x.p, 64) || !B64U_RE.test(x.p)) return null
-    if (typeof x.e !== "number") return null
+    if (typeof x.e !== "number" || !Number.isSafeInteger(x.e)) return null
     return { v: 1, r: x.r, p: x.p, n: cleanName(x.n), e: x.e }
   } catch {
     return null
@@ -162,4 +162,16 @@ export function decodePairPayload(raw: string): PairPayload | null {
 export function encodePairPayload(p: PairPayload): string {
   const json = unescape(encodeURIComponent(JSON.stringify(p)))
   return btoa(json).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "")
+}
+
+/** Extract pairing data without navigating to a scanned, untrusted URL. */
+export function decodePairLink(value: string): PairPayload | null {
+  try {
+    const url = new URL(value.trim())
+    if (!["http:", "https:"].includes(url.protocol) || url.username || url.password) return null
+    const raw = new URLSearchParams(url.hash.slice(1)).get("pair")
+    return raw ? decodePairPayload(raw) : null
+  } catch {
+    return null
+  }
 }

@@ -5,9 +5,10 @@ import { getMeta, setMeta, deleteMeta } from "../idb"
 import { b64u, deriveGroupRoom, fromB64u, randomBytes } from "./crypto"
 import { startSession, type Session, type PeerInfo } from "./engine"
 import { hostPairing, joinPairing, type Candidate } from "./pairing"
-import { decodePairPayload, encodePairPayload, type PairPayload } from "./protocol"
+import { decodePairLink, decodePairPayload, encodePairPayload, type PairPayload } from "./protocol"
 import { joinTrystero, type JoinRoom, type RoomHandle } from "./transport"
 import { recordHash } from "./merge"
+import { registerPairingCode, resolvePairingCode, revokePairingCode } from "./pairing-code-client"
 
 export interface KnownDevice {
   deviceId: string
@@ -21,7 +22,7 @@ export type HostStage = "starting" | "waiting" | "confirm" | "done" | "expired" 
 export type JoinStage = "confirm" | "connecting" | "approve" | "done" | "denied" | "expired" | "error"
 
 export type Pairing =
-  | { role: "host"; stage: HostStage; link: string; expiresAt: number; candidate: Candidate | null; error?: string }
+  | { role: "host"; stage: HostStage; link: string; expiresAt: number; candidate: Candidate | null; error?: string; shortCode?: string; codeLoading?: boolean; codeError?: string }
   | { role: "join"; stage: JoinStage; hostName: string; code: string | null; payload: PairPayload; error?: string }
 
 export interface SyncState {
@@ -41,7 +42,7 @@ const DEVICES_META = "syncDevices"
 /** Leave the room after this long in the background; rejoin when visible. */
 const IDLE_LEAVE_MS = 60_000
 
-class SyncManager {
+export class SyncManager {
   private state: SyncState = {
     ready: false,
     enabled: false,
@@ -67,6 +68,13 @@ class SyncManager {
   private retryDelay = 2000
   private connectionGeneration = 0
   private initPromise: Promise<void> | null = null
+  private pairGeneration = 0
+  private codeRegistration: { code: string; ownerToken: string } | null = null
+  private codeRequest: AbortController | null = null
+
+  constructor(join: JoinRoom = joinTrystero) {
+    this.join = join
+  }
 
   subscribe = (fn: () => void) => {
     this.listeners.add(fn)
@@ -274,7 +282,10 @@ class SyncManager {
   // ── Pairing: this device shows the code ────────────────────────────────────
 
   async startHosting() {
-    await this.cancelPairing()
+    const cleanup = this.cancelPairing()
+    const generation = this.pairGeneration
+    await cleanup
+    if (generation !== this.pairGeneration) return
     this.setPairing({ role: "host", stage: "starting", link: "", expiresAt: 0, candidate: null })
     try {
       const host = await hostPairing({
@@ -283,10 +294,13 @@ class SyncManager {
         getGroupKey: () => this.getOrCreateGroupKey(),
         callbacks: {
           onCandidate: (candidate) => {
+            if (generation !== this.pairGeneration) return
             const p = this.state.pairing
             if (p?.role === "host") this.setPairing({ ...p, stage: "confirm", candidate })
           },
           onPaired: (peer) => {
+            if (generation !== this.pairGeneration) return
+            this.revokeCode()
             this.upsertDevice(peer.deviceId, peer.name)
             const p = this.state.pairing
             if (p?.role === "host") this.setPairing({ ...p, stage: "done" })
@@ -295,11 +309,15 @@ class SyncManager {
           },
         },
       })
+      if (generation !== this.pairGeneration) { await host.close(); return }
       this.host = host
       const link = `${location.origin}${location.pathname}#pair=${encodePairPayload(host.payload)}`
-      this.setPairing({ role: "host", stage: "waiting", link, expiresAt: host.payload.e, candidate: null })
+      this.setPairing({ role: "host", stage: "waiting", link, expiresAt: host.payload.e, candidate: null, codeLoading: true })
       this.armExpiry(host.payload.e)
+      // QR is usable immediately; a lookup outage never blocks direct pairing.
+      void this.registerCode(host.payload, generation)
     } catch (e) {
+      if (generation !== this.pairGeneration) return
       console.warn("Pairing failed to start", e)
       this.setPairing({
         role: "host",
@@ -318,8 +336,42 @@ class SyncManager {
 
   denyCandidate() {
     this.host?.deny()
-    const p = this.state.pairing
-    if (p?.role === "host") this.setPairing({ ...p, stage: "waiting", candidate: null })
+    // A denied claimant must not retain access to the next pairing session.
+    void this.startHosting()
+  }
+
+  private async registerCode(payload: PairPayload, generation: number) {
+    const ownerToken = b64u(randomBytes(24))
+    const controller = new AbortController()
+    this.codeRequest = controller
+    try {
+      const result = await registerPairingCode(payload, ownerToken, controller.signal)
+      const current = this.state.pairing
+      if (generation !== this.pairGeneration || current?.role !== "host" || !["waiting", "confirm"].includes(current.stage)) {
+        void revokePairingCode(result.code, ownerToken)
+        return
+      }
+      this.codeRegistration = { code: result.code, ownerToken }
+      payload.e = result.expiresAt
+      const link = `${location.origin}${location.pathname}#pair=${encodePairPayload(payload)}`
+      this.setPairing({ ...current, link, shortCode: result.code, expiresAt: result.expiresAt, codeLoading: false })
+      this.armExpiry(result.expiresAt)
+    } catch {
+      const current = this.state.pairing
+      if (generation === this.pairGeneration && current?.role === "host" && ["waiting", "confirm"].includes(current.stage)) {
+        this.setPairing({ ...current, codeLoading: false, codeError: "Pairing codes are temporarily unavailable. Scan the QR code instead." })
+      }
+    } finally {
+      if (this.codeRequest === controller) this.codeRequest = null
+    }
+  }
+
+  private revokeCode() {
+    this.codeRequest?.abort()
+    this.codeRequest = null
+    const registration = this.codeRegistration
+    this.codeRegistration = null
+    if (registration) void revokePairingCode(registration.code, registration.ownerToken)
   }
 
   // ── Pairing: this device scanned the code ──────────────────────────────────
@@ -334,21 +386,49 @@ class SyncManager {
       this.set({ error: "That pairing link isn't valid." })
       return true
     }
-    void this.cancelPairing().then(() =>
-      this.setPairing({
-        role: "join",
-        stage: payload.e < Date.now() ? "expired" : "confirm",
-        hostName: payload.n,
-        code: null,
-        payload,
-      })
-    )
+    void this.beginJoin(payload)
     return true
+  }
+
+  /** Pair inside this app's storage context rather than opening a browser tab. */
+  async openPairLink(value: string): Promise<boolean> {
+    const payload = decodePairLink(value)
+    if (!payload) return false
+    const generation = this.pairGeneration
+    await this.init()
+    if (generation !== this.pairGeneration) return false
+    await this.beginJoin(payload)
+    return true
+  }
+
+  async openPairCode(code: string, attemptId: string, signal: AbortSignal) {
+    const generation = this.pairGeneration
+    const payload = await resolvePairingCode(code, attemptId, signal)
+    if (signal.aborted || generation !== this.pairGeneration) return
+    await this.init()
+    if (signal.aborted || generation !== this.pairGeneration) return
+    await this.beginJoin(payload)
+  }
+
+  private async beginJoin(payload: PairPayload) {
+    const cleanup = this.cancelPairing()
+    const generation = this.pairGeneration
+    await cleanup
+    if (generation !== this.pairGeneration) return
+    this.clearError()
+    this.setPairing({
+      role: "join",
+      stage: payload.e < Date.now() ? "expired" : "confirm",
+      hostName: payload.n,
+      code: null,
+      payload,
+    })
   }
 
   async acceptJoin() {
     const p = this.state.pairing
     if (p?.role !== "join" || p.stage !== "confirm") return
+    const generation = this.pairGeneration
     if (p.payload.e < Date.now()) {
       this.setPairing({ ...p, stage: "expired" })
       return
@@ -356,16 +436,18 @@ class SyncManager {
     this.setPairing({ ...p, stage: "connecting" })
     this.armExpiry(p.payload.e)
     try {
-      this.joiner = await joinPairing({
+      const joiner = await joinPairing({
         join: this.join,
         identity: { deviceId: repo.device.id, name: repo.device.name },
         payload: p.payload,
         callbacks: {
           onCode: (code) => {
+            if (generation !== this.pairGeneration) return
             const cur = this.state.pairing
             if (cur?.role === "join") this.setPairing({ ...cur, stage: "approve", code })
           },
           onWelcome: (key, host) => {
+            if (generation !== this.pairGeneration) return
             this.clearPairTimer()
             this.joiner = null
             this.upsertDevice(host.deviceId, host.name)
@@ -374,6 +456,7 @@ class SyncManager {
             if (cur?.role === "join") this.setPairing({ ...cur, stage: "done" })
           },
           onDenied: () => {
+            if (generation !== this.pairGeneration) return
             this.clearPairTimer()
             this.joiner = null
             const cur = this.state.pairing
@@ -381,7 +464,10 @@ class SyncManager {
           },
         },
       })
+      if (generation !== this.pairGeneration) { await joiner.close(); return }
+      this.joiner = joiner
     } catch (e) {
+      if (generation !== this.pairGeneration) return
       console.warn("Join pairing failed", e)
       this.setPairing({ ...p, stage: "error", error: "Couldn't reach the other device. Try again." })
     }
@@ -394,6 +480,8 @@ class SyncManager {
     this.pairTimer = setTimeout(() => {
       const p = this.state.pairing
       if (!p || p.stage === "done") return
+      this.pairGeneration++
+      this.revokeCode()
       void this.closePairRooms()
       this.setPairing({ ...p, stage: "expired" } as Pairing)
     }, Math.max(0, at - Date.now()))
@@ -413,9 +501,11 @@ class SyncManager {
   }
 
   async cancelPairing() {
+    this.pairGeneration++
+    this.revokeCode()
     this.clearPairTimer()
-    await this.closePairRooms()
     this.setPairing(null)
+    await this.closePairRooms()
   }
 
   // ── Settings ───────────────────────────────────────────────────────────────

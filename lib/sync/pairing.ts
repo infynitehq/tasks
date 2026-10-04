@@ -52,24 +52,29 @@ export async function hostPairing(opts: {
   const no = room.channel(ACTIONS.pairDeny)
 
   let candidate: Candidate | null = null
+  let pendingPeer: string | null = null
   let closed = false
 
   req.onMessage(async (data, peerId) => {
-    if (closed) return
+    if (closed || payload.e <= now()) return
     const r = parsePairRequest(data)
     if (!r) return
     // One candidate at a time. Anyone else who scanned the code is turned away.
-    if (candidate && candidate.peerId !== peerId) {
+    if ((candidate && candidate.peerId !== peerId) || (pendingPeer && pendingPeer !== peerId)) {
       no.send({}, peerId)
       return
     }
-    if (candidate) return
+    if (candidate || pendingPeer) return
+    pendingPeer = peerId
     const code = await confirmationCode(payload.p, room.selfId, peerId)
+    if (closed || payload.e <= now() || pendingPeer !== peerId) return
+    pendingPeer = null
     candidate = { peerId, deviceId: r.deviceId, name: r.name, code }
     opts.callbacks.onCandidate(candidate)
   })
 
   room.onPeerLeave((peerId) => {
+    if (pendingPeer === peerId) pendingPeer = null
     if (candidate?.peerId === peerId && !closed) candidate = null
   })
 
@@ -82,10 +87,12 @@ export async function hostPairing(opts: {
   return {
     payload,
     async allow() {
-      if (!candidate || closed) return
+      if (!candidate || closed || payload.e <= now()) return
+      const approved = candidate
       const key = await opts.getGroupKey()
-      ok.send({ key: b64u(key), deviceId: opts.identity.deviceId, name: opts.identity.name }, candidate.peerId)
-      const peer = { deviceId: candidate.deviceId, name: candidate.name }
+      if (closed || payload.e <= now() || candidate !== approved) return
+      ok.send({ key: b64u(key), deviceId: opts.identity.deviceId, name: opts.identity.name }, approved.peerId)
+      const peer = { deviceId: approved.deviceId, name: approved.name }
       // Give the message a moment to leave before tearing the room down.
       setTimeout(() => void close(), 1500)
       opts.callbacks.onPaired(peer)

@@ -1,4 +1,5 @@
 import { turnCredentials } from "@/lib/turn"
+import { isSameOriginRequest } from "@/lib/server/request-origin"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -9,8 +10,7 @@ const requests = new Map<string, { count: number; reset: number }>()
 const headers = { "Cache-Control": "no-store", Vary: "Origin" }
 
 export async function POST(request: Request) {
-  if (request.headers.get("origin") !== new URL(request.url).origin ||
-      request.headers.get("sec-fetch-site") === "cross-site") {
+  if (!isSameOriginRequest(request)) {
     return Response.json({ error: "Same-origin request required" }, { status: 403, headers })
   }
   const now = Date.now()

@@ -1,5 +1,5 @@
 {
-  "name": "my-project",
+  "name": "tasks",
   "version": "0.1.0",
   "private": true,
   "packageManager": "pnpm@10.34.6",
@@ -10,11 +10,13 @@
   },
   "dependencies": {
     "@base-ui/react": "^1.5.0",
+    "@upstash/redis": "^1.39.0",
     "@vercel/analytics": "1.6.1",
     "bot-avatars": "^0.2.2",
     "clsx": "^2.1.1",
     "date-fns": "^4.4.0",
     "geist": "^1.7.2",
+    "jsqr": "^1.4.0",
     "loading-dev": "^0.3.5",
     "lucide-react": "^1.16.0",
     "motion": "^12.43.0",
@@ -24,6 +26,7 @@
     "react-day-picker": "^10.0.1",
     "react-dom": "^19",
     "recharts": "^3.8.0",
+    "server-only": "^0.0.1",
     "shadcn": "^4.8.0",
     "tailwind-merge": "^3.3.1",
     "trystero": "^0.25.4",
@@ -37,6 +40,7 @@
     "@types/react-dom": "^19",
     "postcss": "^8.5",
     "tailwindcss": "^4.3.3",
+    "tsx": "^4.23.15",
     "typescript": "5.7.3"
   },
   "pnpm": {

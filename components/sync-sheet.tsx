@@ -2,7 +2,7 @@
 
 import { useEffect, useId, useRef, useState } from "react"
 import { motion, AnimatePresence } from "motion/react"
-import { ArrowLeft, Check, CircleCheck, Copy, Laptop, Smartphone, ShieldCheck, ArrowRight, Monitor, RefreshCw, Clock3 } from "lucide-react"
+import { ArrowLeft, Check, CircleCheck, Copy, Laptop, Smartphone, ShieldCheck, ArrowRight, Monitor, RefreshCw, Clock3, ScanLine, Keyboard } from "lucide-react"
 import { Classic, Eclipse, Pulse } from "loading-dev"
 import { useSync } from "@/hooks/use-sync"
 import { sync, type SyncState, type Pairing } from "@/lib/sync/manager"
@@ -10,6 +10,9 @@ import { QrCode } from "./qr-code"
 import { syncSummary } from "@/lib/sync/status"
 import { SyncStatusIcon } from "./sync-status"
 import { SyncIllustration } from "./sync-illustration"
+import { QrPairScanner } from "./qr-pair-scanner"
+import { PairingCodeEntry } from "./pairing-code-entry"
+import { formatPairingCode } from "@/lib/pairing-code"
 import styles from "./sync-sheet.module.css"
 
 const primaryBtn =
@@ -46,16 +49,27 @@ function usePresentedPairing(pairing: Pairing | null, open: boolean): Pairing | 
 
 export function SyncSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
   const state = useSync()
+  const [scanning, setScanning] = useState(false)
+  const [enteringCode, setEnteringCode] = useState(false)
+  useEffect(() => {
+    if (!open || state.pairing) { setScanning(false); setEnteringCode(false) }
+  }, [open, state.pairing])
   const pairing = usePresentedPairing(state.pairing, open)
   const centered = !state.ready || pairing?.stage === "starting" || pairing?.stage === "connecting"
     || (pairing?.role === "host" && (pairing.stage === "waiting" || pairing.stage === "confirm"))
     || pairing?.stage === "approve"
-  const fullHeight = centered || (state.ready && state.enabled && !state.pairing)
+  const fullHeight = !scanning && !enteringCode && (centered || (state.ready && state.enabled && !state.pairing))
+  const scan = () => { setEnteringCode(false); setScanning(true) }
+  const enterCode = () => { setScanning(false); setEnteringCode(true) }
 
   const close = () => {
     // Leaving mid-pairing cancels it; leaving a finished one just clears it.
     if (state.pairing) void sync.cancelPairing()
     sync.clearError()
+    setScanning(false)
+    setEnteringCode(false)
+    // Also invalidate in-flight code resolution when leaving the entry screen.
+    if (!state.pairing) void sync.cancelPairing()
     onClose()
   }
 
@@ -83,12 +97,16 @@ export function SyncSheet({ open, onClose }: { open: boolean; onClose: () => voi
 
             {!state.ready ? (
               <PendingView title="Sync" sub="Getting sync ready…" />
-            ) : pairing ? (
+            ) : state.pairing && pairing ? (
               <PairingView pairing={pairing} onDone={() => void sync.cancelPairing()} onBackToTasks={close} />
+            ) : scanning ? (
+              <QrPairScanner onCancel={() => setScanning(false)} onEnterCode={enterCode} />
+            ) : enteringCode ? (
+              <PairingCodeEntry onCancel={() => setEnteringCode(false)} onScan={scan} />
             ) : state.enabled ? (
-              <ConnectedView state={state} />
+              <ConnectedView state={state} onScan={scan} onEnterCode={enterCode} />
             ) : (
-              <OffView error={state.error} />
+              <OffView error={state.error} onScan={scan} onEnterCode={enterCode} />
             )}
           </div>
         </motion.div>
@@ -99,14 +117,14 @@ export function SyncSheet({ open, onClose }: { open: boolean; onClose: () => voi
 
 // ── Not set up ───────────────────────────────────────────────────────────────
 
-function OffView({ error }: { error: string | null }) {
+function OffView({ error, onScan, onEnterCode }: { error: string | null; onScan: () => void; onEnterCode: () => void }) {
   return (
     <>
       <SyncIllustration />
       <Heading title="Your tasks, together" sub="Pick up where you left off on your phone, tablet, or computer." />
       {error && <p className="text-sm text-foreground/50 mb-6">{error}</p>}
       <div className="mb-8 space-y-4">
-        {["Scan a code with your other device.", "Approve the connection. You only do this once.", "Keep tasks open on both devices to share changes."].map((step, index) => (
+        {["Show a code on one device. Enter its pairing code inside Tasks on the other, or scan its QR code.", "Approve the connection. You only do this once.", "Keep tasks open on both devices to share changes."].map((step, index) => (
           <div key={step} className="flex items-start gap-3 text-sm text-foreground/65">
             <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-foreground/5 text-xs font-medium">{index + 1}</span>
             <p className="pt-0.5">{step}</p>
@@ -115,6 +133,12 @@ function OffView({ error }: { error: string | null }) {
       </div>
       <button onClick={() => void sync.startHosting()} className={`${primaryBtn} flex items-center justify-center gap-2`}>
         Sync with another device <ArrowRight className="h-4 w-4" aria-hidden="true" />
+      </button>
+      <button onClick={onEnterCode} className={`${secondaryBtn} mt-3 flex items-center justify-center gap-2`}>
+        <Keyboard className="h-4 w-4" aria-hidden="true" /> Enter a pairing code
+      </button>
+      <button onClick={onScan} className="mt-2 flex min-h-11 w-full items-center justify-center gap-2 rounded-full text-sm text-foreground/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/30">
+        <ScanLine className="h-4 w-4" aria-hidden="true" /> Scan a QR code instead
       </button>
       <p className="flex items-center justify-center gap-1.5 text-xs text-foreground/45 mt-5 leading-relaxed text-center">
         <ShieldCheck className="h-3.5 w-3.5" aria-hidden="true" /> Only your paired devices can read your tasks.
@@ -125,7 +149,7 @@ function OffView({ error }: { error: string | null }) {
 
 // ── Set up ───────────────────────────────────────────────────────────────────
 
-function ConnectedView({ state }: { state: SyncState }) {
+function ConnectedView({ state, onScan, onEnterCode }: { state: SyncState; onScan: () => void; onEnterCode: () => void }) {
   const others = state.devices.filter((d) => d.deviceId !== state.me.deviceId)
   const status = syncSummary(state)
   const [, tick] = useState(0)
@@ -184,6 +208,10 @@ function ConnectedView({ state }: { state: SyncState }) {
         <button onClick={() => void sync.startHosting()} className={primaryBtn}>
           Sync another device
         </button>
+        <button onClick={onEnterCode} className={`${secondaryBtn} flex items-center justify-center gap-2`}>
+          <Keyboard className="h-4 w-4" aria-hidden="true" /> Enter a pairing code
+        </button>
+        <button onClick={onScan} className="min-h-10 rounded-full text-sm text-foreground/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/30">Scan a QR code instead</button>
         <LeaveButton />
       </div>
     </div>
@@ -327,10 +355,14 @@ function PairingView({ pairing, onDone, onBackToTasks }: { pairing: Pairing; onD
           <section className="flex flex-1 flex-col justify-center py-8 text-center">
             <div className="mb-6">
               <h1 className="mx-auto max-w-[18ch] text-[28px] font-medium leading-tight tracking-tight text-foreground/85 text-balance sm:text-[32px]">Connect your devices</h1>
-              <p className="mx-auto mt-3 max-w-[34ch] text-sm leading-relaxed text-foreground/60 text-pretty">Open the camera on your other device and scan this code. Keep this screen open.</p>
+              <p className="mx-auto mt-3 max-w-[34ch] text-sm leading-relaxed text-foreground/60 text-pretty">Open Tasks on your other device and enter this pairing code, or scan the QR code below. Keep both apps open.</p>
             </div>
             <div className="mb-8 flex flex-col items-center gap-4">
-              <QrCode value={pairing.link} label="Pairing code" />
+              {pairing.shortCode ? <div>
+                <p className="mb-3 text-xs text-foreground/50">Pairing code</p>
+                <p className="select-text font-mono text-3xl tracking-widest text-foreground/90" aria-label={`Pairing code ${pairing.shortCode.split("").join(" ")}`}>{formatPairingCode(pairing.shortCode)}</p>
+              </div> : <p role="status" className="max-w-[30ch] text-xs leading-relaxed text-foreground/55">{pairing.codeLoading ? "Getting a pairing code…" : pairing.codeError}</p>}
+              <QrCode value={pairing.link} label="Pairing QR code" />
               <div className="flex items-center gap-2 text-foreground/35">
                 <span aria-hidden="true" className="flex text-foreground/60">
                   <Classic size={16} color="currentColor" />
@@ -339,7 +371,8 @@ function PairingView({ pairing, onDone, onBackToTasks }: { pairing: Pairing; onD
               </div>
             </div>
             <div className="mx-auto flex w-full max-w-xs flex-col gap-2">
-              <CopyLink link={pairing.link} />
+              {pairing.shortCode && <CopyCode code={pairing.shortCode} />}
+              <button onClick={() => void sync.startHosting()} className="min-h-10 rounded-full text-sm text-foreground/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/30">Generate new code</button>
               <button onClick={onDone} className="text-sm text-foreground/30 hover:text-foreground/60 transition-colors duration-150 py-2 focus-visible:outline-none">
                 Cancel
               </button>
@@ -556,13 +589,13 @@ function Retry({ title, sub, onRetry }: { title: string; sub: string; onRetry: (
   )
 }
 
-function CopyLink({ link }: { link: string }) {
+function CopyCode({ code }: { code: string }) {
   const [copied, setCopied] = useState(false)
   return (
     <button
       onClick={async () => {
         try {
-          await navigator.clipboard.writeText(link)
+          await navigator.clipboard.writeText(formatPairingCode(code))
           setCopied(true)
           setTimeout(() => setCopied(false), 1800)
         } catch {
@@ -572,7 +605,7 @@ function CopyLink({ link }: { link: string }) {
       className={`${secondaryBtn} flex items-center justify-center gap-2`}
     >
       {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-      {copied ? "Link copied" : "Copy link instead"}
+      {copied ? "Code copied" : "Copy pairing code"}
     </button>
   )
 }
